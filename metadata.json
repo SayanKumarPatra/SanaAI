@@ -1,0 +1,6 @@
+{
+  "name": "SANA - 3D AI Virtual Assistant",
+  "description": "Bilingual (Bengali/English) 3D AI Virtual Assistant & Personal Companion with voice capabilities, real-time screen vision, and browser automation.",
+  "requestFramePermissions": ["camera", "microphone", "display-capture"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

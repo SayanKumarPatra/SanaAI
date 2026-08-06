@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Cormorant Garamond", serif;
+}
+
+:root {
+  --color-bg: #09050d;
+  --color-accent: #ff4e00;
+  --glass-surface: rgba(255, 80, 20, 0.08);
+  --glass-border: rgba(255, 200, 150, 0.12);
+}
+
+body {
+  background-color: var(--color-bg);
+  color: #fff;
+  overflow: hidden;
+}
+
+.atmosphere {
+  position: fixed;
+  inset: 0;
+  background: 
+    radial-gradient(circle at 50% 20%, #20092b 0%, transparent 60%),
+    radial-gradient(circle at 10% 90%, #d9381e 0%, transparent 50%),
+    radial-gradient(circle at 90% 80%, #7c3aed 0%, transparent 50%);
+  filter: blur(80px);
+  opacity: 0.5;
+  z-index: -1;
+}
+
+/* Upward Flowing Speaking Light Gradient */
+@keyframes auraUpward {
+  0% {
+    background-position: 50% 100%, 0% 100%, 100% 100%;
+    opacity: 0.6;
+    transform: translateY(10px) scale(0.98);
+  }
+  50% {
+    background-position: 50% 20%, 30% 10%, 70% 10%;
+    opacity: 0.95;
+    transform: translateY(-10px) scale(1.02);
+  }
+  100% {
+    background-position: 50% 0%, 50% 0%, 50% 0%;
+    opacity: 0.7;
+    transform: translateY(0px) scale(1);
+  }
+}
+
+.speaking-light-upward {
+  background: 
+    linear-gradient(to top, rgba(255, 100, 20, 0.45) 0%, rgba(244, 63, 94, 0.25) 45%, rgba(168, 85, 247, 0.15) 75%, transparent 100%),
+    radial-gradient(ellipse at 50% 100%, rgba(255, 80, 0, 0.6) 0%, rgba(225, 29, 72, 0.3) 50%, transparent 80%);
+  animation: auraUpward 3.5s ease-in-out infinite alternate;
+  filter: blur(40px);
+}
+
+.listening-light-upward {
+  background: 
+    linear-gradient(to top, rgba(16, 185, 129, 0.35) 0%, rgba(56, 189, 248, 0.2) 50%, transparent 100%),
+    radial-gradient(ellipse at 50% 100%, rgba(16, 185, 129, 0.5) 0%, transparent 70%);
+  animation: auraUpward 4s ease-in-out infinite alternate;
+  filter: blur(45px);
+}
+
+.glass-card {
+  background: var(--glass-surface);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 2rem;
+}
+
+.orb-glow {
+  box-shadow: 0 0 40px var(--color-accent), 0 0 80px rgba(255, 78, 0, 0.3);
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 1; }
+}
+
+.animate-pulse-slow {
+  animation: pulse 3s infinite ease-in-out;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+
