@@ -25,7 +25,12 @@ import {
   RotateCcw,
   UserCheck,
   Link as LinkIcon,
-  Key
+  Key,
+  Brain,
+  Lock,
+  Unlock,
+  ShieldCheck,
+  Server
 } from 'lucide-react';
 import { connectToSANA, ActionPayload } from './services/geminiService';
 import { useAudioHandler } from './hooks/useAudioHandler';
@@ -34,7 +39,23 @@ import { ChatPanel } from './components/ChatPanel';
 import { AvatarCanvas } from './components/AvatarCanvas';
 import { SanaLogo } from './components/SanaLogo';
 import { SetUpSanaModal } from './components/SetUpSanaModal';
-import { ChatMessage } from './types';
+import { MemoryDashboardModal } from './components/MemoryDashboardModal';
+import { MemoryProposalModal } from './components/MemoryProposalModal';
+import { ChatMessage, SanaMemory, MemoryCandidate } from './types';
+import { 
+  subscribeMemories, 
+  createMemory, 
+  formatMemoriesForSystemPrompt, 
+  detectMemoryFromText 
+} from './services/memoryService';
+import {
+  subscribeLiveAvatarSettings,
+  updateLiveAvatarInFirebase,
+  updateLiveLogoInFirebase,
+  resetLiveAvatarInFirebase,
+  resetLiveLogoInFirebase,
+  checkAdminPassword
+} from './services/avatarService';
 import { saveCustomVRM, resetCustomVRM, getCustomVRMUrl, fetchAndSaveVRMFromUrl } from './utils/avatarStorage';
 
 export default function App() {
@@ -65,11 +86,40 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(() => localStorage.getItem('sana_name') || localStorage.getItem('profx_name'));
   const [activeAction, setActiveAction] = useState<ActionPayload | null>(null);
+
+  // SANA Memory Bank State
+  const [memories, setMemories] = useState<SanaMemory[]>([]);
+  const [showMemoryDashboard, setShowMemoryDashboard] = useState(false);
+  const [memoryCandidate, setMemoryCandidate] = useState<MemoryCandidate | null>(null);
+
+  // Real-time Firestore Memory Subscription
+  useEffect(() => {
+    const unsubscribe = subscribeMemories((data) => {
+      setMemories(data);
+    });
+    return () => unsubscribe();
+  }, []);
   
   // 3D Avatar Controls
   const [cameraMode, setCameraMode] = useState<'full' | 'upper' | 'head'>('full');
   const [waveTrigger, setWaveTrigger] = useState<number>(0);
   
+  // Admin Control State (Password: 100)
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminPassInput, setAdminPassInput] = useState('');
+  const [adminPassError, setAdminPassError] = useState(false);
+
+  const handleAdminLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (checkAdminPassword(adminPassInput)) {
+      setIsAdmin(true);
+      setAdminPassError(false);
+      setAdminPassInput('');
+    } else {
+      setAdminPassError(true);
+    }
+  };
+
   // SANA Personality Mode
   const [persona, setPersona] = useState<'companion' | 'mentor' | 'automation' | 'creative'>('companion');
 
@@ -80,19 +130,33 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       const result = evt.target?.result as string;
       if (result) {
         setCustomLogoImg(result);
         localStorage.setItem('sana_custom_logo', result);
+        if (isAdmin) {
+          try {
+            await updateLiveLogoInFirebase(result);
+          } catch (err) {
+            console.warn('Failed to update live logo in Firebase:', err);
+          }
+        }
       }
     };
     reader.readAsDataURL(file);
   };
 
-  const handleResetLogo = () => {
+  const handleResetLogo = async () => {
     setCustomLogoImg(null);
     localStorage.removeItem('sana_custom_logo');
+    if (isAdmin) {
+      try {
+        await resetLiveLogoInFirebase();
+      } catch (err) {
+        console.warn('Failed to reset live logo in Firebase:', err);
+      }
+    }
   };
 
   // Custom VRM Avatar Model
@@ -101,10 +165,37 @@ export default function App() {
   const [vrmUrlInput, setVrmUrlInput] = useState('');
   const [isDownloadingVRM, setIsDownloadingVRM] = useState(false);
 
+  // Load initial local VRM
   useEffect(() => {
     getCustomVRMUrl().then(url => {
       if (url) setCustomAvatarUrl(url);
     });
+  }, []);
+
+  // Real-time Firebase Sync for 3D Avatar & Logo across all live users
+  useEffect(() => {
+    const unsubscribe = subscribeLiveAvatarSettings(async (settings) => {
+      if (settings.vrmUrl) {
+        try {
+          if (settings.vrmUrl.startsWith('data:') || settings.vrmUrl.startsWith('blob:')) {
+            setCustomAvatarUrl(settings.vrmUrl);
+            setCustomVRMName(settings.vrmName || 'Live Admin Avatar');
+          } else {
+            const url = await fetchAndSaveVRMFromUrl(settings.vrmUrl);
+            setCustomAvatarUrl(url);
+            setCustomVRMName(settings.vrmName || 'Live Admin Avatar');
+          }
+        } catch (err) {
+          console.warn('Could not load live VRM from Firebase URL:', err);
+        }
+      }
+
+      if (settings.logoUrl) {
+        setCustomLogoImg(settings.logoUrl);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const handleFileUploadVRM = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -115,6 +206,17 @@ export default function App() {
       const url = await saveCustomVRM(file, file.name);
       setCustomAvatarUrl(url);
       setCustomVRMName(file.name);
+
+      if (isAdmin) {
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          const dataUrl = evt.target?.result as string;
+          if (dataUrl) {
+            await updateLiveAvatarInFirebase(dataUrl, file.name);
+          }
+        };
+        reader.readAsDataURL(file);
+      }
     } catch (err: any) {
       console.error('Failed to save VRM model:', err);
       setError(err?.message || 'Invalid .vrm 3D model file. Please ensure you uploaded a valid .vrm file.');
@@ -128,10 +230,15 @@ export default function App() {
     try {
       setError(null);
       setIsDownloadingVRM(true);
-      const url = await fetchAndSaveVRMFromUrl(vrmUrlInput.trim());
+      const trimmed = vrmUrlInput.trim();
+      const url = await fetchAndSaveVRMFromUrl(trimmed);
       setCustomAvatarUrl(url);
-      setCustomVRMName('URL Imported Avatar.vrm');
+      setCustomVRMName('Live Admin Avatar.vrm');
       setVrmUrlInput('');
+
+      if (isAdmin) {
+        await updateLiveAvatarInFirebase(trimmed, 'Live Admin Avatar.vrm');
+      }
     } catch (err: any) {
       console.error('Failed to download VRM model from URL:', err);
       setError(err?.message || 'Could not load VRM model from URL. Please ensure it is a direct download link or upload the .vrm file directly!');
@@ -142,6 +249,13 @@ export default function App() {
 
   const handleResetVRM = async () => {
     await resetCustomVRM();
+    if (isAdmin) {
+      try {
+        await resetLiveAvatarInFirebase();
+      } catch (err) {
+        console.warn('Failed to reset live avatar in Firebase:', err);
+      }
+    }
     setCustomAvatarUrl(null);
     setCustomVRMName(null);
   };
@@ -184,6 +298,15 @@ export default function App() {
 
   const appendTranscription = useCallback((text: string, isModel: boolean) => {
     if (!text) return;
+
+    // Detect potential memory candidate from user voice input
+    if (!isModel && text.length > 6) {
+      const detected = detectMemoryFromText(text);
+      if (detected) {
+        setMemoryCandidate(detected);
+      }
+    }
+
     setTranscription(prev => {
       const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const lastMsg = prev[prev.length - 1];
@@ -222,6 +345,12 @@ export default function App() {
 
   const handleSendMessageFromChat = useCallback((text: string) => {
     if (!text.trim()) return;
+
+    // Detect potential memory candidate from chat message
+    const detected = detectMemoryFromText(text);
+    if (detected) {
+      setMemoryCandidate(detected);
+    }
 
     const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMsg: ChatMessage = {
@@ -317,7 +446,7 @@ export default function App() {
         onExecuteAction: (action) => {
           setActiveAction(action);
         }
-      }, userName);
+      }, userName, formatMemoriesForSystemPrompt(memories));
       sessionRef.current = session;
     } catch (err: any) {
       console.error('Session initialization error:', err);
@@ -399,6 +528,20 @@ export default function App() {
 
         {/* Action Header Tools */}
         <div className="flex items-center gap-2 sm:gap-3">
+          <button 
+            onClick={() => setShowMemoryDashboard(true)}
+            className="px-3 py-1.5 rounded-xl bg-orange-500/15 hover:bg-orange-500/25 text-orange-300 border border-orange-500/30 transition-all flex items-center gap-1.5 text-xs font-semibold shadow-md relative"
+            title="SANA Memory Bank"
+          >
+            <Brain size={15} className="text-orange-400" />
+            <span className="hidden sm:inline">Memory</span>
+            {memories.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-orange-500 text-white font-bold ml-0.5">
+                {memories.length}
+              </span>
+            )}
+          </button>
+
           <button 
             onClick={() => setShowSetupModal(true)}
             className="px-3 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 transition-all flex items-center gap-1.5 text-xs font-semibold shadow-md"
@@ -801,6 +944,26 @@ export default function App() {
                       <span>Open {activeAction.url}</span>
                     </a>
                   )}
+
+                  {activeAction.type === 'weather' && activeAction.weatherData && (
+                    <div className="w-full p-4 rounded-xl bg-gradient-to-r from-sky-900/60 to-blue-900/60 border border-sky-400/30 text-white space-y-2">
+                      <div className="flex justify-between items-center border-b border-sky-400/20 pb-2">
+                        <span className="text-xs font-bold text-sky-200">🌤️ Live Weather Data</span>
+                        <span className="text-[11px] font-mono text-sky-300">{activeAction.weatherData.location}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-2xl font-black text-white">{activeAction.weatherData.temperature}</div>
+                          <div className="text-xs text-sky-200">{activeAction.weatherData.condition}</div>
+                        </div>
+                        <div className="text-right text-[11px] text-sky-200/80 space-y-0.5 font-mono">
+                          <div>Humidity: {activeAction.weatherData.humidity || 'N/A'}</div>
+                          <div>Wind: {activeAction.weatherData.windSpeed || 'N/A'}</div>
+                          <div>Forecast: {activeAction.weatherData.todayForecast || 'N/A'}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </motion.div>
               )}
 
@@ -817,22 +980,24 @@ export default function App() {
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
-            className="fixed inset-y-0 right-0 w-80 sm:w-88 glass-card m-3 z-30 p-6 flex flex-col justify-between border border-white/15 shadow-2xl rounded-3xl"
+            className="fixed inset-y-0 right-0 w-84 sm:w-96 glass-card m-3 z-30 p-5 flex flex-col justify-between border border-white/15 shadow-2xl rounded-3xl max-h-[calc(100vh-1.5rem)] overflow-hidden"
           >
-            <div className="space-y-6">
-              <div className="flex justify-between items-center border-b border-white/10 pb-4">
-                <div>
-                  <h2 className="text-lg font-bold text-white">SANA Settings</h2>
-                  <p className="text-[11px] text-white/40">Voice synthesis & assistant preferences</p>
-                </div>
-                <button 
-                  onClick={() => setShowSettings(false)} 
-                  className="p-1.5 text-white/50 hover:text-white rounded-lg hover:bg-white/10"
-                >
-                  <X size={18} />
-                </button>
+            {/* Header Fixed */}
+            <div className="flex justify-between items-center border-b border-white/10 pb-3 shrink-0">
+              <div>
+                <h2 className="text-lg font-bold text-white">SANA Settings</h2>
+                <p className="text-[11px] text-white/40">Voice synthesis & assistant preferences</p>
               </div>
+              <button 
+                onClick={() => setShowSettings(false)} 
+                className="p-1.5 text-white/50 hover:text-white rounded-lg hover:bg-white/10"
+              >
+                <X size={18} />
+              </button>
+            </div>
 
+            {/* Scrollable Content Body */}
+            <div className="flex-1 overflow-y-auto space-y-5 pr-1 py-3 custom-scrollbar">
               {/* Voice Pitch */}
               <div className="space-y-3">
                 <div className="flex justify-between text-xs">
@@ -906,101 +1071,196 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Custom 3D Avatar VRM Model Storage */}
+              {/* SANA Memory Bank Management */}
+              <div className="space-y-3 pt-2 border-t border-white/10">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-white/80 font-semibold flex items-center gap-1.5">
+                    <Brain size={14} className="text-orange-400" />
+                    <span>Memory System</span>
+                  </span>
+                  <span className="text-[10px] text-orange-400 font-mono bg-orange-500/10 border border-orange-500/20 px-2 py-0.5 rounded-full">
+                    {memories.length} Saved
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowSettings(false);
+                    setShowMemoryDashboard(true);
+                  }}
+                  className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-orange-600/20 to-amber-600/20 border border-orange-500/30 hover:bg-orange-600/30 transition-all text-xs font-semibold text-orange-200 flex items-center justify-center gap-2 shadow-lg"
+                >
+                  <Brain size={14} className="text-orange-400" />
+                  <span>OPEN MEMORY DASHBOARD</span>
+                </button>
+              </div>
+
+              {/* 3D Avatar & Logo Control with Admin Firebase Sync */}
               <div className="space-y-3 pt-2 border-t border-white/10">
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-white/80 font-semibold flex items-center gap-1.5">
                     <UserCheck size={14} className="text-orange-400" />
-                    <span>3D Avatar VRM Model</span>
+                    <span>3D Avatar & Logo (Firebase Sync)</span>
                   </span>
-                  {customVRMName ? (
-                    <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                      Custom Active
+                  {isAdmin ? (
+                    <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Unlock size={10} />
+                      Admin Control
                     </span>
                   ) : (
-                    <span className="text-[10px] text-white/40 font-mono">Default SANA</span>
+                    <span className="text-[10px] text-amber-400 font-mono bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Lock size={10} />
+                      Protected
+                    </span>
                   )}
                 </div>
 
-                {customVRMName && (
-                  <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white/80 flex items-center justify-between">
-                    <span className="truncate font-mono text-[11px] text-orange-300">{customVRMName}</span>
-                    <button
-                      onClick={handleResetVRM}
-                      className="text-red-400 hover:text-red-300 p-1 hover:bg-white/10 rounded-lg transition-colors text-[10px] flex items-center gap-1 shrink-0"
-                      title="Reset to default SANA avatar"
-                    >
-                      <RotateCcw size={12} />
-                      <span>Reset</span>
-                    </button>
+                {!isAdmin ? (
+                  /* Non-Admin Login Prompt */
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-b from-white/5 to-white/[0.02] border border-white/10 space-y-3">
+                    <div className="flex items-center gap-2.5 text-xs text-amber-200/90 font-medium">
+                      <ShieldCheck size={16} className="text-amber-400 shrink-0" />
+                      <span>লাইভ সার্ভার ৩ডি অবতার ও লোগো পরিবর্তন করার জন্য এডমিন লগইন করুন।</span>
+                    </div>
+
+                    <form onSubmit={handleAdminLogin} className="flex items-center gap-2">
+                      <input
+                        type="password"
+                        placeholder="পাসওয়ার্ড লিখুন (যেমন: 100)..."
+                        value={adminPassInput}
+                        onChange={(e) => {
+                          setAdminPassInput(e.target.value);
+                          setAdminPassError(false);
+                        }}
+                        className="flex-1 bg-black/40 border border-white/15 rounded-xl px-3 py-2 text-xs text-white placeholder-white/40 focus:outline-none focus:border-orange-500/60 font-mono"
+                      />
+                      <button
+                        type="submit"
+                        className="px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold rounded-xl text-xs transition-all shadow-md shrink-0 flex items-center gap-1.5"
+                      >
+                        <Unlock size={12} />
+                        <span>Admin Login</span>
+                      </button>
+                    </form>
+
+                    {adminPassError && (
+                      <p className="text-[11px] text-red-400 font-medium">
+                        ❌ ভুল এডমিন পাসওয়ার্ড! অনুগ্রহ করে ১০০ দিয়ে চেষ্টা করুন।
+                      </p>
+                    )}
+
+                    <div className="pt-2 border-t border-white/10 text-[11px] text-white/60 space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span>বর্তমান ৩ডি অবতার:</span>
+                        <span className="font-mono text-orange-300">{customVRMName || 'Default SANA'}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>সার্ভার স্ট্যাটাস:</span>
+                        <span className="text-emerald-400 flex items-center gap-1 font-mono">
+                          <Server size={10} /> Live Connected
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Admin Active Control Panel */
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-b from-orange-500/10 to-amber-500/5 border border-orange-500/30 space-y-3.5 shadow-xl">
+                    <div className="flex items-center justify-between pb-2 border-b border-orange-500/20">
+                      <div className="flex items-center gap-2">
+                        <Unlock size={15} className="text-emerald-400" />
+                        <span className="text-xs font-bold text-orange-200">এডমিন মোড সচল (Password: 100)</span>
+                      </div>
+                      <button
+                        onClick={() => setIsAdmin(false)}
+                        className="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-[10px] transition-colors"
+                      >
+                        Logout
+                      </button>
+                    </div>
+
+                    {/* Admin VRM Avatar Controls */}
+                    <div className="space-y-2">
+                      <span className="text-[11px] font-semibold text-white/90 block">
+                        ১. লাইভ ৩ডি অবতার (.vrm ফাইল বা লিঙ্ক আপলোড)
+                      </span>
+
+                      {customVRMName && (
+                        <div className="p-2 rounded-xl bg-black/30 border border-white/10 text-xs text-white/80 flex items-center justify-between">
+                          <span className="truncate font-mono text-[11px] text-orange-300">{customVRMName}</span>
+                          <button
+                            onClick={handleResetVRM}
+                            className="text-red-400 hover:text-red-300 px-2 py-0.5 hover:bg-white/10 rounded-lg transition-colors text-[10px] flex items-center gap-1 shrink-0"
+                            title="Reset to default SANA avatar on live server"
+                          >
+                            <RotateCcw size={10} />
+                            <span>Reset Live</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* File Upload */}
+                      <label className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-orange-500/20 to-amber-500/20 border border-orange-500/40 hover:bg-orange-500/30 transition-all text-xs font-semibold text-orange-200 cursor-pointer flex items-center justify-center gap-2 shadow-lg">
+                        <Upload size={14} className="text-orange-400" />
+                        <span>{customVRMName ? "Change Live .vrm File" : "Upload Live .vrm File to Firebase"}</span>
+                        <input
+                          type="file"
+                          accept=".vrm"
+                          onChange={handleFileUploadVRM}
+                          className="hidden"
+                        />
+                      </label>
+
+                      {/* URL Direct Import */}
+                      <form onSubmit={handleUrlImportVRM} className="flex items-center gap-1.5">
+                        <div className="relative flex-1">
+                          <LinkIcon size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-white/40" />
+                          <input
+                            type="url"
+                            placeholder="Paste VRM Direct Link / Drive Link..."
+                            value={vrmUrlInput}
+                            onChange={(e) => setVrmUrlInput(e.target.value)}
+                            className="w-full bg-black/30 border border-white/10 rounded-lg pl-7 pr-2 py-1.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-orange-500/50"
+                          />
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={isDownloadingVRM || !vrmUrlInput.trim()}
+                          className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white rounded-lg text-xs font-semibold transition-colors shrink-0 flex items-center gap-1"
+                        >
+                          {isDownloadingVRM ? 'Saving...' : 'Sync Live'}
+                        </button>
+                      </form>
+                    </div>
+
+                    {/* Admin Logo Controls */}
+                    <div className="space-y-2 pt-2 border-t border-white/10">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-white/90">২. লাইভ লোগো ব্যাজ (JPG/PNG)</span>
+                        {customLogoImg && (
+                          <button
+                            onClick={handleResetLogo}
+                            className="text-red-400 hover:text-red-300 text-[10px] flex items-center gap-1"
+                          >
+                            <RotateCcw size={10} />
+                            <span>Reset Live Logo</span>
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <SanaLogo size="sm" customImage={customLogoImg} />
+                        <label className="flex-1 py-2 px-3 rounded-xl bg-black/30 hover:bg-black/50 border border-white/15 transition-all text-xs font-semibold text-white/90 cursor-pointer flex items-center justify-center gap-2">
+                          <Upload size={14} className="text-orange-400" />
+                          <span>{customLogoImg ? "Change Live Logo" : "Upload Live Logo to Firebase"}</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleLogoUpload}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 )}
-
-                {/* Option 1: File Upload */}
-                <label className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-orange-500/20 to-amber-500/20 border border-orange-500/30 hover:bg-orange-500/30 transition-all text-xs font-medium text-orange-200 cursor-pointer flex items-center justify-center gap-2 shadow-lg">
-                  <Upload size={14} className="text-orange-400" />
-                  <span>{customVRMName ? "Change Custom .vrm File" : "Upload Custom .vrm File"}</span>
-                  <input
-                    type="file"
-                    accept=".vrm"
-                    onChange={handleFileUploadVRM}
-                    className="hidden"
-                  />
-                </label>
-
-                {/* Option 2: Link Import */}
-                <form onSubmit={handleUrlImportVRM} className="flex items-center gap-1.5">
-                  <div className="relative flex-1">
-                    <LinkIcon size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-white/40" />
-                    <input
-                      type="url"
-                      placeholder="Paste VRM Direct Link / Drive File URL..."
-                      value={vrmUrlInput}
-                      onChange={(e) => setVrmUrlInput(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-lg pl-7 pr-2 py-1.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-orange-500/50"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={isDownloadingVRM || !vrmUrlInput.trim()}
-                    className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white rounded-lg text-xs font-medium transition-colors shrink-0 flex items-center gap-1"
-                  >
-                    {isDownloadingVRM ? 'Loading...' : 'Import'}
-                  </button>
-                </form>
-
-                <p className="text-[10px] text-white/50 leading-relaxed">
-                  💡 <b>নোট:</b> ড্রাইভ লিঙ্কে গিয়ে <b>.vrm</b> ফাইলটি সরাসরি ডাউনলোড করে <b>Upload Custom .vrm File</b> বাটনে বেছে নিন। এটি ব্রাউজার মেমরিতে চিরস্থায়ীভাবে সেভ থাকবে।
-                </p>
-              </div>
-
-              {/* Custom Logo Image Uploader */}
-              <div className="space-y-3 pt-2 border-t border-white/10">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-white/80 font-semibold block">SANA Custom Logo Badge</span>
-                  {customLogoImg && (
-                    <button
-                      onClick={handleResetLogo}
-                      className="text-red-400 hover:text-red-300 text-[10px] flex items-center gap-1"
-                    >
-                      <RotateCcw size={10} />
-                      <span>Reset Logo</span>
-                    </button>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  <SanaLogo size="sm" customImage={customLogoImg} />
-                  <label className="flex-1 py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-xs font-medium text-white/80 cursor-pointer flex items-center justify-center gap-2">
-                    <Upload size={14} className="text-orange-400" />
-                    <span>{customLogoImg ? "Change JPG/PNG Logo" : "Upload JPG/PNG Logo"}</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleLogoUpload}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
               </div>
 
               {/* Persona / Vibe Selection */}
@@ -1035,7 +1295,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="pt-4 border-t border-white/10">
+            <div className="pt-3 border-t border-white/10 shrink-0 mt-2">
               <p className="text-[11px] text-white/40 leading-relaxed italic text-center">
                 SANA 3D AI Assistant created by Sayan. Real-time Gemini Live voice & vision streaming.
               </p>
@@ -1061,6 +1321,23 @@ export default function App() {
         onClose={() => setShowSetupModal(false)}
         onSaveKey={(key) => setApiKey(key)}
         currentKey={apiKey}
+      />
+
+      {/* SANA AI Memory Dashboard */}
+      <MemoryDashboardModal
+        isOpen={showMemoryDashboard}
+        onClose={() => setShowMemoryDashboard(false)}
+        memories={memories}
+      />
+
+      {/* SANA AI Memory Proposal Modal (Requires user confirmation before saving) */}
+      <MemoryProposalModal
+        candidate={memoryCandidate}
+        onSave={async (candidate) => {
+          await createMemory(candidate);
+          setMemoryCandidate(null);
+        }}
+        onDiscard={() => setMemoryCandidate(null)}
       />
     </div>
   );

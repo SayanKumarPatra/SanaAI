@@ -12,15 +12,17 @@ Personality:
 
 Capabilities:
 1. Language: You are fully bilingual in Bengali and English. Always respond in the language the user speaks in (Bengali or English). Adapt seamlessly with natural code-switching.
-2. Context Memory: Remember user information and goals to provide personalized advice. Refer to the user by their name (once provided).
-3. Hands-free Automated Browser Actions & Tools:
+2. Real-Time Live Clock & Date Accuracy: You ALWAY know the exact real-time live current date, time, year, month, day of the week, and timezone. When the user asks "কটা বাজে?", "আজকের তারিখ কত?", "আজ কি বার?", or "what time is it?", ALWAYS state the exact current time and date accurately from your live system prompt or tool.
+3. Live Weather Reports: When the user asks for weather reports (e.g. "আজকের আবহাওয়া কেমন?", "কলকাতা/ঢাকার ওয়েদার কি?"), ALWAYS call the "get_live_weather" tool to fetch real-time live weather, temperature (°C), humidity, and conditions.
+4. Context Memory: Remember user information and goals to provide personalized advice. Refer to the user by their name (once provided).
+5. Hands-free Automated Browser Actions & Tools:
    - You have tools to open YouTube and search/play videos or music automatically (e.g. "Open YouTube and play Rabindra Sangeet" / "ইউটিউব ওপেন করে গান চালাও").
    - You have tools to open external websites and perform Google searches automatically.
-   - When the user asks to open YouTube, play songs, search Shyama Sangeet, Rabindra Sangeet, or open any website, ALWAYS call the corresponding tool (e.g. open_youtube_search) immediately.
-   - Speak a brief, friendly confirmation in Bengali or English (e.g. "অবশ্যই! আমি এখনই ইউটিউবে গান প্লে করছি।") while executing the tool.
-4. Problem Solving: Break down complex problems into clear, actionable guidance.
-5. Screen Recognition & Visual Troubleshooting: You can analyze the user's laptop screen real-time when shared. Explain what you see and help solve issues step-by-step.
-6. Course & Link Recommendations: When recommending websites or resources, provide clear links (e.g. https://...) so they are saved in the user's notes log.
+   - When the user asks to open YouTube, play songs, search Shyama Sangeet, Rabindra Sangeet, or open any website, ALWAYS call the corresponding tool immediately.
+   - Speak a brief, friendly confirmation in Bengali or English while executing the tool.
+6. Problem Solving: Break down complex problems into clear, actionable guidance.
+7. Screen Recognition & Visual Troubleshooting: You can analyze the user's laptop screen real-time when shared. Explain what you see and help solve issues step-by-step.
+8. Course & Link Recommendations: When recommending websites or resources, provide clear links (e.g. https://...) so they are saved in the user's notes log.
 
 Voice & Tone:
 - You are a Real-time Voice & Visual Agent. Keep responses concise and pleasant for audio output.
@@ -32,10 +34,100 @@ Interaction Style:
 `;
 
 export interface ActionPayload {
-  type: 'youtube' | 'website' | 'google';
+  type: 'youtube' | 'website' | 'google' | 'weather';
   title: string;
   url: string;
   query?: string;
+  weatherData?: any;
+}
+
+/**
+ * Fetch real-time live weather using free wttr.in or open-meteo APIs
+ */
+async function fetchLiveWeather(location: string) {
+  const cleanLoc = location.trim() || 'Kolkata';
+
+  try {
+    const res = await fetch(`https://wttr.in/${encodeURIComponent(cleanLoc)}?format=j1`);
+    if (res.ok) {
+      const data = await res.json();
+      const current = data.current_condition?.[0];
+      const area = data.nearest_area?.[0];
+      const today = data.weather?.[0];
+
+      if (current) {
+        const city = area?.areaName?.[0]?.value || cleanLoc;
+        const country = area?.country?.[0]?.value || '';
+        const tempC = current?.temp_C || 'N/A';
+        const feelsLikeC = current?.FeelsLikeC || 'N/A';
+        const desc = current?.weatherDesc?.[0]?.value || 'Clear';
+        const humidity = current?.humidity || 'N/A';
+        const windKmph = current?.windspeedKmph || 'N/A';
+        const maxC = today?.maxtempC || 'N/A';
+        const minC = today?.mintempC || 'N/A';
+
+        return {
+          location: `${city}${country ? `, ${country}` : ''}`,
+          temperature: `${tempC}°C`,
+          feelsLike: `${feelsLikeC}°C`,
+          condition: desc,
+          humidity: `${humidity}%`,
+          windSpeed: `${windKmph} km/h`,
+          todayForecast: `High ${maxC}°C, Low ${minC}°C`,
+          raw: data
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('wttr.in fetch failed, falling back to open-meteo:', err);
+  }
+
+  // Fallback to Open-Meteo
+  try {
+    const geoRes = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cleanLoc)}&count=1&language=en&format=json`);
+    const geoData = await geoRes.json();
+    if (geoData.results && geoData.results.length > 0) {
+      const { latitude, longitude, name, country } = geoData.results[0];
+      const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`);
+      const wData = await wRes.json();
+      const cw = wData.current_weather;
+      if (cw) {
+        return {
+          location: `${name}, ${country || ''}`,
+          temperature: `${cw.temperature}°C`,
+          windSpeed: `${cw.windspeed} km/h`,
+          condition: `Weather code ${cw.weathercode}`
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('Open-Meteo fetch failed:', err);
+  }
+
+  return {
+    location: cleanLoc,
+    temperature: 'Live weather lookup failed',
+    error: 'Could not fetch live weather data at this moment.'
+  };
+}
+
+/**
+ * Get formatted current real-time clock and date strings
+ */
+function getLiveClockInfo() {
+  const now = new Date();
+  const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+  const dateString = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const bnDateString = now.toLocaleDateString('bn-BD', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  return {
+    time: timeString,
+    dateEn: dateString,
+    dateBn: bnDateString,
+    timeZone: timeZone,
+    iso: now.toISOString()
+  };
 }
 
 export function connectToSANA(callbacks: {
@@ -46,7 +138,7 @@ export function connectToSANA(callbacks: {
   onClose: () => void;
   onError: (error: any) => void;
   onExecuteAction?: (action: ActionPayload) => void;
-}, userName?: string | null) {
+}, userName?: string | null, memoryContext?: string | null) {
   const apiKey = localStorage.getItem('sana_api_key') || process.env.GEMINI_API_KEY || "";
   if (!apiKey) {
     const keyError = new Error("GEMINI_API_KEY is missing. Please click 'SET UP SANA' to add your Gemini API key.");
@@ -55,6 +147,19 @@ export function connectToSANA(callbacks: {
   }
 
   const ai = new GoogleGenAI({ apiKey });
+
+  // Get current live clock for prompt context
+  const clock = getLiveClockInfo();
+
+  const liveClockPrompt = `
+=== REAL-TIME LIVE SYSTEM CLOCK (EXACT TODAY) ===
+- Exact Local Time: ${clock.time}
+- Exact Today Date (EN): ${clock.dateEn}
+- Exact Today Date (BN): ${clock.dateBn}
+- Time Zone: ${clock.timeZone}
+- System Timestamp: ${clock.iso}
+* Note: Use this exact time and date whenever the user asks about the current time, date, day, month, or year!
+`;
 
   const sessionPromise = ai.live.connect({
     model: "gemini-3.1-flash-live-preview",
@@ -73,7 +178,7 @@ export function connectToSANA(callbacks: {
         const sc = message.serverContent as any;
         const msgAny = message as any;
 
-        // Handle Tool Calls (e.g. Open YouTube, Search)
+        // Handle Tool Calls (e.g. Open YouTube, Weather, Time, Search)
         if (msgAny.toolCall || sc?.toolCall) {
           const toolCall = msgAny.toolCall || sc.toolCall;
           const functionCalls = toolCall.functionCalls;
@@ -84,7 +189,32 @@ export function connectToSANA(callbacks: {
               const args = fc.args || {};
               let responseText = "Action executed.";
 
-              if (name === "open_youtube_search") {
+              if (name === "get_live_weather") {
+                const loc = args.location || "Kolkata";
+                callbacks.onTranscription(`[System Action: Fetching live weather for "${loc}"...]`, true);
+                const weatherInfo = await fetchLiveWeather(loc);
+                
+                responseText = `Live weather for ${weatherInfo.location}: Temperature ${weatherInfo.temperature}, Condition: ${weatherInfo.condition}, Humidity: ${weatherInfo.humidity || 'N/A'}, Wind: ${weatherInfo.windSpeed || 'N/A'}.`;
+
+                if (callbacks.onExecuteAction) {
+                  callbacks.onExecuteAction({
+                    type: 'weather',
+                    title: `Live Weather: ${weatherInfo.location}`,
+                    url: `https://wttr.in/${encodeURIComponent(loc)}`,
+                    query: loc,
+                    weatherData: weatherInfo
+                  });
+                }
+
+                callbacks.onTranscription(
+                  `🌤️ **Live Weather Report (${weatherInfo.location})**:\n- 🌡️ Temperature: ${weatherInfo.temperature} (Feels like: ${weatherInfo.feelsLike || weatherInfo.temperature})\n- ☁️ Condition: ${weatherInfo.condition}\n- 💧 Humidity: ${weatherInfo.humidity || 'N/A'}\n- 💨 Wind Speed: ${weatherInfo.windSpeed || 'N/A'}\n- 📊 Forecast: ${weatherInfo.todayForecast || 'N/A'}`,
+                  true
+                );
+              } else if (name === "get_current_time_and_date") {
+                const liveClock = getLiveClockInfo();
+                responseText = `Exact current live local time is ${liveClock.time}, date is ${liveClock.dateEn} (${liveClock.dateBn}), Timezone: ${liveClock.timeZone}.`;
+                callbacks.onTranscription(`🕒 **Live System Time**: ${liveClock.time} | 📅 **Date**: ${liveClock.dateEn} (${liveClock.dateBn})`, true);
+              } else if (name === "open_youtube_search") {
                 const query = args.query || "Shyama Sangeet";
                 const ytUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
                 
@@ -228,6 +358,29 @@ export function connectToSANA(callbacks: {
         {
           functionDeclarations: [
             {
+              name: "get_live_weather",
+              description: "Fetch real-time live weather report, temperature (°C), weather description, humidity, and forecast for any city or location worldwide (e.g. Kolkata, Dhaka, Siliguri, London, Delhi, Mumbai, New York).",
+              parameters: {
+                type: Type.OBJECT,
+                properties: {
+                  location: {
+                    type: Type.STRING,
+                    description: "City or location name, e.g. Kolkata, Dhaka, London"
+                  }
+                },
+                required: ["location"]
+              }
+            },
+            {
+              name: "get_current_time_and_date",
+              description: "Get the exact live current local time, date, day of week, month, year, and timezone.",
+              parameters: {
+                type: Type.OBJECT,
+                properties: {},
+                required: []
+              }
+            },
+            {
               name: "open_youtube_search",
               description: "Automatically open YouTube and search/play videos, songs, topics, Shyama Sangeet (শ্যামা সংগীত), Rabindra Sangeet, tutorials, or music requested by voice in Bengali or English.",
               parameters: {
@@ -276,7 +429,7 @@ export function connectToSANA(callbacks: {
           ]
         }
       ],
-      systemInstruction: `${SYSTEM_INSTRUCTION}${userName ? `\n\nThe user's name is ${userName}. Refer to them by name.` : ''}`,
+      systemInstruction: `${SYSTEM_INSTRUCTION}\n${liveClockPrompt}${userName ? `\n\nThe user's name is ${userName}. Refer to them by name.` : ''}${memoryContext ? `\n\n${memoryContext}` : ''}`,
     },
   });
 
@@ -285,4 +438,5 @@ export function connectToSANA(callbacks: {
 
 // Backwards compatibility alias
 export const connectToProfX = connectToSANA;
+
 

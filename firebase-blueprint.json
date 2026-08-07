@@ -1,0 +1,29 @@
+{
+  "entities": {
+    "memories": {
+      "title": "Memories",
+      "description": "User memory entries detected or manually added for SANA AI companion",
+      "fields": {
+        "title": { "type": "string", "description": "Short memory title" },
+        "content": { "type": "string", "description": "Memory details and context" },
+        "category": { "type": "string", "description": "Memory category" },
+        "importance": { "type": "string", "description": "Importance level" },
+        "tags": { "type": "array", "items": { "type": "string" }, "description": "Associated tags" },
+        "createdDate": { "type": "string", "description": "ISO timestamp" },
+        "updatedDate": { "type": "string", "description": "ISO timestamp" },
+        "lastUsed": { "type": "string", "description": "ISO timestamp" }
+      }
+    },
+    "settings": {
+      "title": "Settings",
+      "description": "Global application settings including live 3D Avatar VRM model and custom logo controlled by Admin",
+      "fields": {
+        "vrmUrl": { "type": "string", "description": "Direct URL or Data URL for the 3D VRM model" },
+        "vrmName": { "type": "string", "description": "Name of the active VRM model" },
+        "logoUrl": { "type": "string", "description": "Custom logo image URL or Data URL" },
+        "updatedAt": { "type": "string", "description": "ISO timestamp when setting was updated" },
+        "updatedBy": { "type": "string", "description": "Updated by admin" }
+      }
+    }
+  }
+}
