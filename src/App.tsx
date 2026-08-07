@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Mic, 
@@ -20,14 +20,20 @@ import {
   PhoneCall,
   Volume2,
   Radio,
-  Video
+  Video,
+  Upload,
+  RotateCcw,
+  UserCheck,
+  Link as LinkIcon
 } from 'lucide-react';
 import { connectToSANA, ActionPayload } from './services/geminiService';
 import { useAudioHandler } from './hooks/useAudioHandler';
 import { useScreenHandler } from './hooks/useScreenHandler';
 import { ChatPanel } from './components/ChatPanel';
 import { AvatarCanvas } from './components/AvatarCanvas';
+import { SanaLogo } from './components/SanaLogo';
 import { ChatMessage } from './types';
+import { saveCustomVRM, resetCustomVRM, getCustomVRMUrl, fetchAndSaveVRMFromUrl } from './utils/avatarStorage';
 
 export default function App() {
   const [status, setStatus] = useState<'idle' | 'connecting' | 'listening' | 'speaking' | 'error'>('idle');
@@ -59,6 +65,79 @@ export default function App() {
   
   // SANA Personality Mode
   const [persona, setPersona] = useState<'companion' | 'mentor' | 'automation' | 'creative'>('companion');
+
+  // Custom Logo Image (JPG / PNG)
+  const [customLogoImg, setCustomLogoImg] = useState<string | null>(() => localStorage.getItem('sana_custom_logo'));
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const result = evt.target?.result as string;
+      if (result) {
+        setCustomLogoImg(result);
+        localStorage.setItem('sana_custom_logo', result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleResetLogo = () => {
+    setCustomLogoImg(null);
+    localStorage.removeItem('sana_custom_logo');
+  };
+
+  // Custom VRM Avatar Model
+  const [customAvatarUrl, setCustomAvatarUrl] = useState<string | null>(null);
+  const [customVRMName, setCustomVRMName] = useState<string | null>(() => localStorage.getItem('sana_vrm_name'));
+  const [vrmUrlInput, setVrmUrlInput] = useState('');
+  const [isDownloadingVRM, setIsDownloadingVRM] = useState(false);
+
+  useEffect(() => {
+    getCustomVRMUrl().then(url => {
+      if (url) setCustomAvatarUrl(url);
+    });
+  }, []);
+
+  const handleFileUploadVRM = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setError(null);
+      const url = await saveCustomVRM(file, file.name);
+      setCustomAvatarUrl(url);
+      setCustomVRMName(file.name);
+    } catch (err: any) {
+      console.error('Failed to save VRM model:', err);
+      setError(err?.message || 'Invalid .vrm 3D model file. Please ensure you uploaded a valid .vrm file.');
+      e.target.value = '';
+    }
+  };
+
+  const handleUrlImportVRM = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!vrmUrlInput.trim()) return;
+    try {
+      setError(null);
+      setIsDownloadingVRM(true);
+      const url = await fetchAndSaveVRMFromUrl(vrmUrlInput.trim());
+      setCustomAvatarUrl(url);
+      setCustomVRMName('URL Imported Avatar.vrm');
+      setVrmUrlInput('');
+    } catch (err: any) {
+      console.error('Failed to download VRM model from URL:', err);
+      setError(err?.message || 'Could not load VRM model from URL. Please ensure it is a direct download link or upload the .vrm file directly!');
+    } finally {
+      setIsDownloadingVRM(false);
+    }
+  };
+
+  const handleResetVRM = async () => {
+    await resetCustomVRM();
+    setCustomAvatarUrl(null);
+    setCustomVRMName(null);
+  };
 
   const sessionRef = useRef<any>(null);
 
@@ -294,14 +373,7 @@ export default function App() {
       {/* Header Bar */}
       <header className="w-full flex justify-between items-center z-10 py-1 px-2 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="relative group cursor-pointer" onClick={() => setWaveTrigger(prev => prev + 1)}>
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-orange-500 via-rose-500 to-amber-400 p-[1.5px] shadow-lg shadow-orange-500/20 group-hover:scale-105 transition-transform">
-              <div className="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center font-black text-orange-400 text-lg tracking-wider">
-                S
-              </div>
-            </div>
-            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-slate-950 animate-pulse" />
-          </div>
+          <SanaLogo size="sm" customImage={customLogoImg} onClick={() => setWaveTrigger(prev => prev + 1)} />
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg sm:text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-orange-200 bg-clip-text text-transparent">
@@ -347,9 +419,7 @@ export default function App() {
             animate={{ opacity: 1, scale: 1 }}
             className="glass-card p-8 w-full max-w-md rounded-3xl space-y-6 text-center border border-white/15 shadow-2xl relative mx-auto my-auto"
           >
-            <div className="w-16 h-16 rounded-2xl bg-orange-500/10 border border-orange-500/30 flex items-center justify-center mx-auto text-orange-400">
-              <Sparkles size={32} />
-            </div>
+            <SanaLogo size="md" customImage={customLogoImg} className="mx-auto" />
             <div>
               <h2 className="text-2xl font-serif italic text-white font-semibold">Welcome, I am SANA.</h2>
               <p className="text-xs text-white/60 mt-1">Your 3D AI companion & personal assistant. What should I call you?</p>
@@ -393,6 +463,8 @@ export default function App() {
                 isSpeaking={status === 'speaking' || isPlaying} 
                 cameraMode="full"
                 waveTrigger={waveTrigger}
+                customAvatarUrl={customAvatarUrl}
+                onInvalidAvatar={handleResetVRM}
                 className="w-full h-full"
               />
 
@@ -783,6 +855,103 @@ export default function App() {
                   <span>Slow</span>
                   <span>Normal</span>
                   <span>Fast</span>
+                </div>
+              </div>
+
+              {/* Custom 3D Avatar VRM Model Storage */}
+              <div className="space-y-3 pt-2 border-t border-white/10">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-white/80 font-semibold flex items-center gap-1.5">
+                    <UserCheck size={14} className="text-orange-400" />
+                    <span>3D Avatar VRM Model</span>
+                  </span>
+                  {customVRMName ? (
+                    <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                      Custom Active
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-white/40 font-mono">Default SANA</span>
+                  )}
+                </div>
+
+                {customVRMName && (
+                  <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white/80 flex items-center justify-between">
+                    <span className="truncate font-mono text-[11px] text-orange-300">{customVRMName}</span>
+                    <button
+                      onClick={handleResetVRM}
+                      className="text-red-400 hover:text-red-300 p-1 hover:bg-white/10 rounded-lg transition-colors text-[10px] flex items-center gap-1 shrink-0"
+                      title="Reset to default SANA avatar"
+                    >
+                      <RotateCcw size={12} />
+                      <span>Reset</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Option 1: File Upload */}
+                <label className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-orange-500/20 to-amber-500/20 border border-orange-500/30 hover:bg-orange-500/30 transition-all text-xs font-medium text-orange-200 cursor-pointer flex items-center justify-center gap-2 shadow-lg">
+                  <Upload size={14} className="text-orange-400" />
+                  <span>{customVRMName ? "Change Custom .vrm File" : "Upload Custom .vrm File"}</span>
+                  <input
+                    type="file"
+                    accept=".vrm"
+                    onChange={handleFileUploadVRM}
+                    className="hidden"
+                  />
+                </label>
+
+                {/* Option 2: Link Import */}
+                <form onSubmit={handleUrlImportVRM} className="flex items-center gap-1.5">
+                  <div className="relative flex-1">
+                    <LinkIcon size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-white/40" />
+                    <input
+                      type="url"
+                      placeholder="Paste VRM Direct Link / Drive File URL..."
+                      value={vrmUrlInput}
+                      onChange={(e) => setVrmUrlInput(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg pl-7 pr-2 py-1.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-orange-500/50"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isDownloadingVRM || !vrmUrlInput.trim()}
+                    className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white rounded-lg text-xs font-medium transition-colors shrink-0 flex items-center gap-1"
+                  >
+                    {isDownloadingVRM ? 'Loading...' : 'Import'}
+                  </button>
+                </form>
+
+                <p className="text-[10px] text-white/50 leading-relaxed">
+                  💡 <b>নোট:</b> ড্রাইভ লিঙ্কে গিয়ে <b>.vrm</b> ফাইলটি সরাসরি ডাউনলোড করে <b>Upload Custom .vrm File</b> বাটনে বেছে নিন। এটি ব্রাউজার মেমরিতে চিরস্থায়ীভাবে সেভ থাকবে।
+                </p>
+              </div>
+
+              {/* Custom Logo Image Uploader */}
+              <div className="space-y-3 pt-2 border-t border-white/10">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-white/80 font-semibold block">SANA Custom Logo Badge</span>
+                  {customLogoImg && (
+                    <button
+                      onClick={handleResetLogo}
+                      className="text-red-400 hover:text-red-300 text-[10px] flex items-center gap-1"
+                    >
+                      <RotateCcw size={10} />
+                      <span>Reset Logo</span>
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <SanaLogo size="sm" customImage={customLogoImg} />
+                  <label className="flex-1 py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-xs font-medium text-white/80 cursor-pointer flex items-center justify-center gap-2">
+                    <Upload size={14} className="text-orange-400" />
+                    <span>{customLogoImg ? "Change JPG/PNG Logo" : "Upload JPG/PNG Logo"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      className="hidden"
+                    />
+                  </label>
                 </div>
               </div>
 
