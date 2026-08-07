@@ -1,0 +1,93 @@
+{
+  "short_name": "SANA",
+  "name": "SANA - 3D AI Virtual Assistant",
+  "icons": [
+    {
+      "src": "/favicon-16.jpg",
+      "sizes": "16x16",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "/favicon-32.jpg",
+      "sizes": "32x32",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "/icon-72x72.jpg",
+      "type": "image/jpeg",
+      "sizes": "72x72"
+    },
+    {
+      "src": "/icon-96x96.jpg",
+      "type": "image/jpeg",
+      "sizes": "96x96"
+    },
+    {
+      "src": "/icon-128x128.jpg",
+      "type": "image/jpeg",
+      "sizes": "128x128"
+    },
+    {
+      "src": "/icon-144x144.jpg",
+      "type": "image/jpeg",
+      "sizes": "144x144"
+    },
+    {
+      "src": "/icon-152x152.jpg",
+      "type": "image/jpeg",
+      "sizes": "152x152"
+    },
+    {
+      "src": "/apple-touch-icon.jpg",
+      "type": "image/jpeg",
+      "sizes": "180x180"
+    },
+    {
+      "src": "/icon-192x192.jpg",
+      "type": "image/jpeg",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icon-256x256.jpg",
+      "type": "image/jpeg",
+      "sizes": "256x256"
+    },
+    {
+      "src": "/icon-384x384.jpg",
+      "type": "image/jpeg",
+      "sizes": "384x384"
+    },
+    {
+      "src": "/icon-512x512.jpg",
+      "type": "image/jpeg",
+      "sizes": "512x512"
+    },
+    {
+      "src": "/maskable-icon.jpg",
+      "type": "image/jpeg",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/adaptive-icon.jpg",
+      "type": "image/jpeg",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-1024x1024.jpg",
+      "type": "image/jpeg",
+      "sizes": "1024x1024"
+    },
+    {
+      "src": "/icon-2048x2048.jpg",
+      "type": "image/jpeg",
+      "sizes": "2048x2048"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#030509",
+  "theme_color": "#f97316",
+  "display": "standalone",
+  "orientation": "portrait"
+}

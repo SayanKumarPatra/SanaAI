@@ -10,6 +10,18 @@ export function useScreenHandler() {
 
   const startScreenShare = useCallback(async (onFrame: (base64: string) => void) => {
     setScreenError(null);
+
+    // Check if getDisplayMedia is supported on current browser/device
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== 'function') {
+      setScreenError("মোবাইল ব্রাউজারে স্ক্রিন শেয়ার সাপোর্ট করে না। অনুগ্রহ করে ল্যাপটপ বা কম্পিউটারে ক্রোম ব্রাউজার ব্যবহার করুন!");
+      return;
+    }
+
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile) {
+      setScreenError("মোবাইল ব্রাউজারে ডায়রেক্ট স্ক্রিন শেয়ার সীমাবদ্ধ। ছবি/ক্যামেরা ফাইল আপলোড বা পিসি ব্রাউজার ব্যবহার করুন!");
+    }
+
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: {
@@ -23,6 +35,7 @@ export function useScreenHandler() {
 
       setScreenStream(stream);
       setIsSharing(true);
+      setScreenError(null);
 
       // Create hidden video element to render the stream
       const video = document.createElement('video');
@@ -65,9 +78,9 @@ export function useScreenHandler() {
       setIsSharing(false);
       setScreenStream(null);
       if (err.name === 'NotAllowedError' || err.message?.includes('denied') || err.message?.includes('disallowed') || err.message?.includes('cancel')) {
-        setScreenError("আপনি স্ক্রিন শেয়ারের অনুমতি বাতিল করেছেন। SANA-কে আপনার ল্যাপটপের স্ক্রিন দেখাতে এবং সাহায্য পেতে অনুগ্রহ করে আবার স্ক্রিন শেয়ার বাটনে ক্লিক করুন ও স্ক্রিন বা উইন্ডো সিলেক্ট করুন!\n\n(You declined or cancelled screen sharing. To let SANA see your laptop screen, please click the button again and select a window/screen!)");
+        setScreenError("স্ক্রিন শেয়ারের অনুমতি দেওয়া হয়নি। ল্যাপটপ/পিসিতে স্ক্রিন শেয়ার করতে বাটনে আবার প্রেস করুন।");
       } else {
-        setScreenError(err.message || "Could not share screen. Please try again.");
+        setScreenError("মোবাইল ডিভাইসে স্ক্রিন শেয়ার সীমাবদ্ধ। ল্যাপটপ/পিসিতে ক্রোম ব্যবহার করুন!");
       }
     }
   }, []);

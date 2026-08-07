@@ -266,15 +266,19 @@ export function connectToSANA(callbacks: {
                 const q = args.targetQuery || "";
 
                 let targetUrl = "https://google.com";
+                let nativeDeepLink = "";
                 let displayTitle = `Opened ${appName}`;
 
-                if (appName.includes("whatsapp")) {
-                  targetUrl = q ? `https://wa.me/?text=${encodeURIComponent(q)}` : `https://web.whatsapp.com`;
+                if (appName.includes("whatsapp") || appName.includes("হোয়াটসঅ্যাপ") || appName.includes("হোয়াটসঅ্যাপ")) {
+                  nativeDeepLink = q ? `whatsapp://send?text=${encodeURIComponent(q)}` : `whatsapp://`;
+                  targetUrl = q ? `https://api.whatsapp.com/send?text=${encodeURIComponent(q)}` : `https://web.whatsapp.com`;
                   displayTitle = "WhatsApp";
-                } else if (appName.includes("telegram")) {
+                } else if (appName.includes("telegram") || appName.includes("টেলিগ্রাম")) {
+                  nativeDeepLink = `tg://msg`;
                   targetUrl = `https://web.telegram.org`;
                   displayTitle = "Telegram";
-                } else if (appName.includes("spotify")) {
+                } else if (appName.includes("spotify") || appName.includes("স্পোটিফাই")) {
+                  nativeDeepLink = q ? `spotify:search:${encodeURIComponent(q)}` : `spotify:`;
                   targetUrl = q ? `https://open.spotify.com/search/${encodeURIComponent(q)}` : `https://open.spotify.com`;
                   displayTitle = "Spotify";
                 } else if (appName.includes("calculator") || appName.includes("ক্যালকুলেটর")) {
@@ -284,40 +288,69 @@ export function connectToSANA(callbacks: {
                   targetUrl = `https://webcamtests.com`;
                   displayTitle = "Camera Launcher";
                 } else if (appName.includes("facebook") || appName.includes("ফেসবুক")) {
+                  nativeDeepLink = `fb://`;
                   targetUrl = `https://facebook.com`;
                   displayTitle = "Facebook";
                 } else if (appName.includes("instagram") || appName.includes("ইনস্টাগ্রাম")) {
+                  nativeDeepLink = `instagram://`;
                   targetUrl = `https://instagram.com`;
                   displayTitle = "Instagram";
-                } else if (appName.includes("gmail") || appName.includes("জিেইল") || appName.includes("mail")) {
+                } else if (appName.includes("gmail") || appName.includes("জিেইল") || appName.includes("mail") || appName.includes("ইমেইল")) {
+                  nativeDeepLink = `mailto:`;
                   targetUrl = `https://mail.google.com`;
-                  displayTitle = "Gmail";
+                  displayTitle = "Gmail / Mail App";
                 } else if (appName.includes("map") || appName.includes("ম্যাপ")) {
+                  nativeDeepLink = q ? `geo:0,0?q=${encodeURIComponent(q)}` : `geo:0,0`;
                   targetUrl = q ? `https://www.google.com/maps/search/${encodeURIComponent(q)}` : `https://maps.google.com`;
                   displayTitle = "Google Maps";
-                } else if (appName.includes("phone") || appName.includes("dialer") || appName.includes("কল")) {
-                  targetUrl = q ? `tel:${q}` : `tel:`;
-                  displayTitle = "Phone Dialer";
+                } else if (appName.includes("phone") || appName.includes("dialer") || appName.includes("কল") || appName.includes("ফোন")) {
+                  nativeDeepLink = q ? `tel:${q}` : `tel:`;
+                  targetUrl = `tel:${q || ''}`;
+                  displayTitle = "Phone Dialer App";
+                } else if (appName.includes("sms") || appName.includes("মেসেজ") || appName.includes("মেসেজিং")) {
+                  nativeDeepLink = q ? `sms:?body=${encodeURIComponent(q)}` : `sms:`;
+                  targetUrl = `sms:`;
+                  displayTitle = "SMS Messenger App";
                 } else if (appName.includes("zoom")) {
+                  nativeDeepLink = `zoomus://`;
                   targetUrl = `https://zoom.us`;
                   displayTitle = "Zoom";
                 } else if (appName.includes("note") || appName.includes("keep") || appName.includes("মেমো")) {
                   targetUrl = `https://keep.google.com`;
                   displayTitle = "Google Keep / Notes";
-                } else if (appName.includes("youtube")) {
+                } else if (appName.includes("youtube") || appName.includes("ইউটিউব")) {
+                  nativeDeepLink = q ? `vnd.youtube://results?search_query=${encodeURIComponent(q)}` : `vnd.youtube://`;
                   targetUrl = q ? `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}` : `https://youtube.com`;
-                  displayTitle = "YouTube";
+                  displayTitle = "YouTube App";
+                } else {
+                  targetUrl = `https://www.google.com/search?q=${encodeURIComponent(appName + ' ' + q)}`;
+                  displayTitle = appName;
                 }
 
+                // Attempt native deep link open first, fallback to targetUrl
                 try {
+                  const finalUrl = nativeDeepLink || targetUrl;
                   const link = document.createElement('a');
-                  link.href = targetUrl;
+                  link.href = finalUrl;
                   link.target = '_blank';
                   link.rel = 'noopener noreferrer';
                   document.body.appendChild(link);
                   link.click();
                   document.body.removeChild(link);
-                } catch (e) {}
+
+                  // Fallback for nativeDeepLink if fails on desktop
+                  if (nativeDeepLink) {
+                    setTimeout(() => {
+                      try {
+                        window.open(targetUrl, '_blank', 'noopener,noreferrer');
+                      } catch (e) {}
+                    }, 500);
+                  }
+                } catch (e) {
+                  try {
+                    window.open(targetUrl, '_blank', 'noopener,noreferrer');
+                  } catch (err) {}
+                }
 
                 if (callbacks.onExecuteAction) {
                   callbacks.onExecuteAction({

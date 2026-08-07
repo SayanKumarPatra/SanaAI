@@ -27,10 +27,12 @@ import {
   Link as LinkIcon,
   Key,
   Brain,
+  Zap,
   Lock,
   Unlock,
   ShieldCheck,
-  Server
+  Server,
+  MoreVertical
 } from 'lucide-react';
 import { connectToSANA, ActionPayload } from './services/geminiService';
 import { useAudioHandler } from './hooks/useAudioHandler';
@@ -91,6 +93,8 @@ export default function App() {
   // SANA Memory Bank State
   const [memories, setMemories] = useState<SanaMemory[]>([]);
   const [showMemoryDashboard, setShowMemoryDashboard] = useState(false);
+  const [showQuickMenu, setShowQuickMenu] = useState(false);
+  const [showTopMenu, setShowTopMenu] = useState(false);
   const [memoryCandidate, setMemoryCandidate] = useState<MemoryCandidate | null>(null);
 
   // Real-time Firestore Memory Subscription
@@ -520,7 +524,7 @@ export default function App() {
       />
 
       {/* Header Bar */}
-      <header className="w-full flex justify-between items-center z-10 py-1.5 px-2 sm:px-4 shrink-0 gap-2">
+      <header className="w-full flex justify-between items-center relative z-[100] py-1.5 px-2 sm:px-4 shrink-0 gap-2">
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <SanaLogo size="sm" customImage={customLogoImg} onClick={() => setWaveTrigger(prev => prev + 1)} />
           <div>
@@ -538,52 +542,133 @@ export default function App() {
           </div>
         </div>
 
-        {/* Action Header Tools */}
-        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+        {/* Action Header Tools with 3-Dot Menu */}
+        <div className="flex items-center gap-2 shrink-0 relative">
+          {/* Main 3-Dot Options Button */}
           <button 
-            onClick={() => setShowMemoryDashboard(true)}
-            className="px-2.5 py-1.5 rounded-xl bg-orange-500/15 hover:bg-orange-500/25 active:scale-95 text-orange-300 border border-orange-500/30 transition-all flex items-center gap-1 sm:gap-1.5 text-xs font-semibold shadow-md relative min-h-[36px]"
-            title="SANA Memory Bank"
+            onClick={() => setShowTopMenu(!showTopMenu)}
+            className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 active:scale-95 text-orange-300 border border-orange-500/40 transition-all flex items-center gap-1.5 text-xs font-bold shadow-lg min-h-[38px] relative z-[101]"
+            title="সব অপশন (All Options)"
           >
-            <Brain size={15} className="text-orange-400 shrink-0" />
-            <span className="hidden sm:inline">Memory</span>
-            {memories.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono bg-orange-500 text-white font-bold ml-0.5">
-                {memories.length}
-              </span>
+            <MoreVertical size={18} className="text-orange-400 shrink-0" />
+            <span className="text-xs font-bold text-white hidden sm:inline">অপশন (Options)</span>
+            {(memories.length > 0 || transcription.length > 0) && (
+              <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
             )}
           </button>
 
-          <button 
-            onClick={() => setShowSetupModal(true)}
-            className="px-2.5 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 active:scale-95 text-cyan-300 border border-cyan-500/30 transition-all flex items-center gap-1 sm:gap-1.5 text-xs font-semibold shadow-md min-h-[36px]"
-            title="Set up Gemini API Key"
-          >
-            <Key size={14} className="text-cyan-400 shrink-0" />
-            <span className="hidden sm:inline">SET UP</span>
-          </button>
+          {/* 3-Dot Dropdown Menu Popover */}
+          <AnimatePresence>
+            {showTopMenu && (
+              <>
+                {/* Backdrop Overlay to close menu on outside click */}
+                <div 
+                  className="fixed inset-0 z-[95] bg-black/60 backdrop-blur-xs" 
+                  onClick={() => setShowTopMenu(false)} 
+                />
 
-          <button 
-            onClick={() => setShowHistory(!showHistory)}
-            className="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 transition-all flex items-center gap-1.5 text-xs font-medium text-white/90 relative border border-white/10 shadow-md min-h-[36px]"
-            title="Open Chat & Saved Notes"
-          >
-            <MessageSquare size={15} className="text-orange-400 shrink-0" />
-            <span className="hidden md:inline">Notes & Chat</span>
-            {transcription.length > 0 && (
-              <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
+                <motion.div
+                  initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                  className="absolute top-full right-0 mt-2 w-72 sm:w-80 p-3 rounded-2xl bg-slate-950/98 border-2 border-orange-500/60 shadow-[0_25px_60px_rgba(0,0,0,0.95)] backdrop-blur-2xl z-[100] flex flex-col gap-2.5 max-h-[85vh] overflow-y-auto"
+                >
+                  <div className="flex items-center justify-between px-2 py-1 text-[11px] font-bold text-orange-300 uppercase tracking-wider border-b border-white/10">
+                    <span>⋮ মেনু অপশন (Menu Options)</span>
+                    <button onClick={() => setShowTopMenu(false)} className="text-white/50 hover:text-white p-1">✕</button>
+                  </div>
+
+                  {/* 1. Quick Commands Section */}
+                  <div className="space-y-1.5">
+                    <div className="px-1 text-[10px] font-semibold text-amber-400/90 uppercase tracking-wider flex items-center gap-1">
+                      <Zap size={12} className="fill-amber-400 text-amber-400" />
+                      <span>কুইক কমান্ড (Quick Commands)</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        onClick={() => { handleQuickShortcut("ইউটিউবে রবীন্দ্র সংগীত চালাও"); setShowTopMenu(false); }}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-orange-500/20 text-xs text-white/90 hover:text-orange-300 transition-all flex items-center gap-1.5 text-left border border-white/5"
+                      >
+                        <Music size={13} className="text-red-400 shrink-0" />
+                        <span className="truncate">🎵 ইউটিউব</span>
+                      </button>
+                      <button
+                        onClick={() => { handleQuickShortcut("হোয়াটসঅ্যাপ খোলো"); setShowTopMenu(false); }}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-emerald-500/20 text-xs text-white/90 hover:text-emerald-300 transition-all flex items-center gap-1.5 text-left border border-white/5"
+                      >
+                        <PhoneCall size={13} className="text-emerald-400 shrink-0" />
+                        <span className="truncate">📱 হোয়াটসঅ্যাপ</span>
+                      </button>
+                      <button
+                        onClick={() => { handleQuickShortcut("আজকের লাইভ আবহাওয়া কেমন?"); setShowTopMenu(false); }}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-sky-500/20 text-xs text-white/90 hover:text-sky-300 transition-all flex items-center gap-1.5 text-left border border-white/5"
+                      >
+                        <Sparkles size={13} className="text-sky-400 shrink-0" />
+                        <span className="truncate">🌤️ আবহাওয়া</span>
+                      </button>
+                      <button
+                        onClick={() => { handleQuickShortcut("এখন কটা বাজে এবং তারিখ কত?"); setShowTopMenu(false); }}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-amber-500/20 text-xs text-white/90 hover:text-amber-300 transition-all flex items-center gap-1.5 text-left border border-white/5"
+                      >
+                        <Sparkles size={13} className="text-amber-400 shrink-0" />
+                        <span className="truncate">🕒 সময়</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="h-px bg-white/10 my-0.5" />
+
+                  {/* 2. SANA Memory Bank */}
+                  <button
+                    onClick={() => { setShowMemoryDashboard(true); setShowTopMenu(false); }}
+                    className="w-full p-2.5 rounded-xl bg-orange-500/15 hover:bg-orange-500/25 text-xs font-semibold text-orange-200 transition-all flex items-center justify-between border border-orange-500/30"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Brain size={16} className="text-orange-400 shrink-0" />
+                      <span>🧠 SANA মেমোরি ব্যাংক</span>
+                    </div>
+                    {memories.length > 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-orange-500 text-white font-bold">
+                        {memories.length}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* 3. Gemini API Key Setup */}
+                  <button
+                    onClick={() => { setShowSetupModal(true); setShowTopMenu(false); }}
+                    className="w-full p-2.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-xs font-semibold text-cyan-200 transition-all flex items-center gap-2 border border-cyan-500/30 text-left"
+                  >
+                    <Key size={16} className="text-cyan-400 shrink-0" />
+                    <span>🔑 API Key সেটআপ (Set Up API)</span>
+                  </button>
+
+                  {/* 4. Chat & Saved Notes */}
+                  <button
+                    onClick={() => { setShowHistory(!showHistory); setShowTopMenu(false); }}
+                    className="w-full p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-white/90 transition-all flex items-center justify-between border border-white/10 text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <MessageSquare size={16} className="text-orange-400 shrink-0" />
+                      <span>💬 চ্যাট ও নোটস (Notes & Chat)</span>
+                    </div>
+                    {transcription.length > 0 && (
+                      <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                    )}
+                  </button>
+
+                  {/* 5. Settings & Admin */}
+                  <button
+                    onClick={() => { setShowSettings(true); setShowTopMenu(false); }}
+                    className="w-full p-2.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-xs font-bold text-purple-200 transition-all flex items-center gap-2 border border-purple-500/40 text-left shadow-sm"
+                  >
+                    <Settings size={16} className="text-purple-300 animate-spin-slow shrink-0" />
+                    <span>⚙️ সেটিং ও এডমিন (Settings)</span>
+                  </button>
+                </motion.div>
+              </>
             )}
-          </button>
-
-          {/* Prominent Settings Button for Mobile & Desktop */}
-          <button 
-            onClick={() => setShowSettings(!showSettings)}
-            className="px-2.5 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 active:scale-95 transition-all text-purple-200 border border-purple-500/40 shadow-md flex items-center gap-1.5 text-xs font-semibold min-h-[36px]"
-            title="Settings & Admin Setup"
-          >
-            <Settings size={16} className="text-purple-300 animate-spin-slow shrink-0" />
-            <span className="text-[11px] sm:text-xs">সেটিং</span>
-          </button>
+          </AnimatePresence>
         </div>
       </header>
 
@@ -801,61 +886,13 @@ export default function App() {
                       }
                     });
                   }}
-                  className="w-full py-1.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 border border-white/10 text-[11px] font-medium transition-all flex items-center justify-center gap-1.5 shrink-0"
+                  className="w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 text-white/90 border border-white/10 text-xs font-semibold transition-all flex items-center justify-center gap-2 shrink-0 shadow-md"
+                  title="ল্যাপটপ বা কম্পিউটারে আপনার স্ক্রিন SANA-কে দেখান"
                 >
-                  <Video size={14} className="text-emerald-400" />
-                  <span>স্ক্রিন দেখার অনুমতি দিন</span>
+                  <Video size={15} className="text-emerald-400" />
+                  <span>🖥️ স্ক্রিন শেয়ার (ল্যাপটপ/পিসি)</span>
                 </button>
               )}
-
-              {/* Quick Action Shortcuts Bar (বাংলা) */}
-              <div className="space-y-1 pt-1.5 border-t border-white/10 shrink-0">
-                <div className="flex justify-between items-center text-[9px] sm:text-[10px] font-semibold text-white/50 uppercase tracking-wider">
-                  <span>কুইক কমান্ড (Quick Commands)</span>
-                  <span className="text-[9px] text-purple-300/80 font-mono">Mobile Compact</span>
-                </div>
-                <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
-                  <button
-                    onClick={() => handleQuickShortcut("ইউটিউবে রবীন্দ্র সংগীত চালাও")}
-                    className="px-2 py-1 rounded-lg bg-white/5 hover:bg-orange-500/20 active:scale-95 border border-white/10 hover:border-orange-500/40 text-[10px] sm:text-[11px] text-white/90 hover:text-orange-300 transition-all flex items-center gap-1 shadow-sm"
-                  >
-                    <Music size={12} className="text-red-400 shrink-0" />
-                    <span>🎵 মিউজিক</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleQuickShortcut("হোয়াটসঅ্যাপ খোলো")}
-                    className="px-2 py-1 rounded-lg bg-white/5 hover:bg-emerald-500/20 active:scale-95 border border-white/10 hover:border-emerald-500/40 text-[10px] sm:text-[11px] text-white/90 hover:text-emerald-300 transition-all flex items-center gap-1 shadow-sm"
-                  >
-                    <PhoneCall size={12} className="text-emerald-400 shrink-0" />
-                    <span>📱 হোয়াটসঅ্যাপ</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleQuickShortcut("আজকের লাইভ আবহাওয়া কেমন?")}
-                    className="px-2 py-1 rounded-lg bg-white/5 hover:bg-sky-500/20 active:scale-95 border border-white/10 hover:border-sky-500/40 text-[10px] sm:text-[11px] text-white/90 hover:text-sky-300 transition-all flex items-center gap-1 shadow-sm"
-                  >
-                    <Sparkles size={12} className="text-sky-400 shrink-0" />
-                    <span>🌤️ আবহাওয়া</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleQuickShortcut("এখন কটা বাজে এবং তারিখ কত?")}
-                    className="px-2 py-1 rounded-lg bg-white/5 hover:bg-amber-500/20 active:scale-95 border border-white/10 hover:border-amber-500/40 text-[10px] sm:text-[11px] text-white/90 hover:text-amber-300 transition-all flex items-center gap-1 shadow-sm"
-                  >
-                    <Sparkles size={12} className="text-amber-400 shrink-0" />
-                    <span>🕒 সময়</span>
-                  </button>
-
-                  <button
-                    onClick={() => setShowSettings(true)}
-                    className="px-2 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 active:scale-95 border border-purple-500/40 text-[10px] sm:text-[11px] font-semibold text-purple-200 transition-all flex items-center gap-1 shadow-sm"
-                  >
-                    <Settings size={12} className="text-purple-300 animate-spin-slow shrink-0" />
-                    <span>⚙️ সেটিং</span>
-                  </button>
-                </div>
-              </div>
 
               {/* Screen Share Error Toast */}
               {screenError && (
@@ -942,10 +979,10 @@ export default function App() {
                       href={activeAction.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-center font-medium transition-colors flex items-center justify-center gap-2"
+                      className="w-full py-2 px-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-center font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-lg"
                     >
                       <Globe size={14} />
-                      <span>Open {activeAction.url}</span>
+                      <span>📱 ডিভাইসের অ্যাপ ওপেন করুন (Open Installed App)</span>
                     </a>
                   )}
 
