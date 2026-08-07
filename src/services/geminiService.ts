@@ -47,9 +47,9 @@ export function connectToSANA(callbacks: {
   onError: (error: any) => void;
   onExecuteAction?: (action: ActionPayload) => void;
 }, userName?: string | null) {
-  const apiKey = process.env.GEMINI_API_KEY || "";
+  const apiKey = localStorage.getItem('sana_api_key') || process.env.GEMINI_API_KEY || "";
   if (!apiKey) {
-    const keyError = new Error("GEMINI_API_KEY environment variable is missing. Please configure it in Settings > Secrets.");
+    const keyError = new Error("GEMINI_API_KEY is missing. Please click 'SET UP SANA' to add your Gemini API key.");
     setTimeout(() => callbacks.onError(keyError), 0);
     return Promise.reject(keyError);
   }

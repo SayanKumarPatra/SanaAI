@@ -24,7 +24,8 @@ import {
   Upload,
   RotateCcw,
   UserCheck,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Key
 } from 'lucide-react';
 import { connectToSANA, ActionPayload } from './services/geminiService';
 import { useAudioHandler } from './hooks/useAudioHandler';
@@ -32,6 +33,7 @@ import { useScreenHandler } from './hooks/useScreenHandler';
 import { ChatPanel } from './components/ChatPanel';
 import { AvatarCanvas } from './components/AvatarCanvas';
 import { SanaLogo } from './components/SanaLogo';
+import { SetUpSanaModal } from './components/SetUpSanaModal';
 import { ChatMessage } from './types';
 import { saveCustomVRM, resetCustomVRM, getCustomVRMUrl, fetchAndSaveVRMFromUrl } from './utils/avatarStorage';
 
@@ -55,6 +57,11 @@ export default function App() {
   });
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('sana_api_key') || '');
+  const [showSetupModal, setShowSetupModal] = useState<boolean>(() => {
+    const savedKey = localStorage.getItem('sana_api_key') || process.env.GEMINI_API_KEY;
+    return !savedKey;
+  });
   const [error, setError] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(() => localStorage.getItem('sana_name') || localStorage.getItem('profx_name'));
   const [activeAction, setActiveAction] = useState<ActionPayload | null>(null);
@@ -290,6 +297,9 @@ export default function App() {
           stopRecording();
           stopScreenShare();
           const errMsg = typeof err === 'string' ? err : (err?.message || 'Network connection error. Tap below to retry.');
+          if (errMsg.includes('GEMINI_API_KEY') || errMsg.includes('key') || errMsg.includes('missing')) {
+            setShowSetupModal(true);
+          }
           setError(errMsg);
           setStatus('error');
         },
@@ -389,6 +399,15 @@ export default function App() {
 
         {/* Action Header Tools */}
         <div className="flex items-center gap-2 sm:gap-3">
+          <button 
+            onClick={() => setShowSetupModal(true)}
+            className="px-3 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 transition-all flex items-center gap-1.5 text-xs font-semibold shadow-md"
+            title="Set up Gemini API Key"
+          >
+            <Key size={14} className="text-cyan-400" />
+            <span className="hidden sm:inline">SET UP SANA</span>
+          </button>
+
           <button 
             onClick={() => setShowHistory(!showHistory)}
             className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 transition-all flex items-center gap-2 text-xs font-medium text-white/90 relative border border-white/10 shadow-md"
@@ -858,6 +877,35 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Google Gemini API Key Setup */}
+              <div className="space-y-3 pt-2 border-t border-white/10">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-white/80 font-semibold flex items-center gap-1.5">
+                    <Key size={14} className="text-cyan-400" />
+                    <span>Google Gemini API Key</span>
+                  </span>
+                  {apiKey ? (
+                    <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                      Active
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-amber-400 font-mono bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                      Setup Needed
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => {
+                    setShowSettings(false);
+                    setShowSetupModal(true);
+                  }}
+                  className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-cyan-600/20 to-teal-600/20 border border-cyan-500/30 hover:bg-cyan-600/30 transition-all text-xs font-semibold text-cyan-200 flex items-center justify-center gap-2 shadow-lg"
+                >
+                  <Key size={14} className="text-cyan-400" />
+                  <span>{apiKey ? "UPDATE GEMINI API KEY" : "SET UP SANA (API KEY)"}</span>
+                </button>
+              </div>
+
               {/* Custom 3D Avatar VRM Model Storage */}
               <div className="space-y-3 pt-2 border-t border-white/10">
                 <div className="flex justify-between items-center text-xs">
@@ -1005,6 +1053,14 @@ export default function App() {
         onClearHistory={handleClearHistory}
         onSendMessage={handleSendMessageFromChat}
         isConnected={status !== 'idle' && status !== 'error'}
+      />
+
+      {/* SET UP SANA Modal Page */}
+      <SetUpSanaModal
+        isOpen={showSetupModal}
+        onClose={() => setShowSetupModal(false)}
+        onSaveKey={(key) => setApiKey(key)}
+        currentKey={apiKey}
       />
     </div>
   );
