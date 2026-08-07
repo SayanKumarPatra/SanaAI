@@ -117,9 +117,9 @@ export function AvatarCanvas({
     const scene = new THREE.Scene();
 
     const cameraTargets: Record<string, { pos: [number, number, number]; lookAt: [number, number, number] }> = {
-      head: { pos: [0, 1.35, 1.45], lookAt: [0, 1.38, 0] },
-      upper: { pos: [0, 1.10, 2.2], lookAt: [0, 1.15, 0] },
-      full: { pos: [0, 0.95, 3.1], lookAt: [0, 0.98, 0] }
+      head: { pos: [0, 1.35, 1.2], lookAt: [0, 1.38, 0] },
+      upper: { pos: [0, 1.15, 1.6], lookAt: [0, 1.20, 0] },
+      full: { pos: [0, 1.0, 2.2], lookAt: [0, 1.02, 0] }
     };
 
     const cameraModeRef = { current: cameraMode };
@@ -396,11 +396,11 @@ export function AvatarCanvas({
       )}
 
       {!loading && !hasAvatarModel && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-950/40 backdrop-blur-md rounded-3xl border border-white/10 z-10 text-white/80 gap-3">
-          <div className="w-14 h-14 rounded-2xl bg-orange-500/20 border border-orange-500/40 flex items-center justify-center text-orange-400 shadow-lg">
-            <span className="text-2xl">✨</span>
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10 text-white/80 gap-3 pointer-events-none">
+          <div className="w-16 h-16 rounded-full bg-orange-500/15 border border-orange-500/30 flex items-center justify-center text-orange-400 shadow-xl backdrop-blur-sm pointer-events-auto">
+            <span className="text-3xl">✨</span>
           </div>
-          <div>
+          <div className="pointer-events-auto">
             <h3 className="text-base font-bold text-white">সব অবতার ডিলিট করা হয়েছে</h3>
             <p className="text-xs text-white/60 max-w-xs mt-1">
               আপনার দেওয়া নতুন ফাইল (.VRM ও .FBX) বা লিংক অপশন থেকে আপলোড করার সাথে সাথে এখানে দেখা যাবে।
@@ -411,7 +411,7 @@ export function AvatarCanvas({
 
       <div
         ref={containerRef}
-        className="w-full h-full min-h-[220px] xs:min-h-[260px] sm:min-h-[380px] lg:min-h-[480px]"
+        className="w-full h-full min-h-[340px] xs:min-h-[380px] sm:min-h-[460px] lg:min-h-[520px]"
       />
     </div>
   );

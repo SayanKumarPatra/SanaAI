@@ -32,8 +32,12 @@ import {
   Unlock,
   ShieldCheck,
   Server,
-  MoreVertical
+  MoreVertical,
+  Download,
+  Languages,
+  BookOpen
 } from 'lucide-react';
+import { SnowParticles } from './components/SnowParticles';
 import { connectToSANA, ActionPayload } from './services/geminiService';
 import { useAudioHandler } from './hooks/useAudioHandler';
 import { useScreenHandler } from './hooks/useScreenHandler';
@@ -43,6 +47,7 @@ import { SanaLogo } from './components/SanaLogo';
 import { SetUpSanaModal } from './components/SetUpSanaModal';
 import { MemoryDashboardModal } from './components/MemoryDashboardModal';
 import { MemoryProposalModal } from './components/MemoryProposalModal';
+import { PwaInstallModal } from './components/PwaInstallModal';
 import { ChatMessage, SanaMemory, MemoryCandidate } from './types';
 import { 
   subscribeMemories, 
@@ -96,6 +101,46 @@ export default function App() {
   const [showQuickMenu, setShowQuickMenu] = useState(false);
   const [showTopMenu, setShowTopMenu] = useState(false);
   const [memoryCandidate, setMemoryCandidate] = useState<MemoryCandidate | null>(null);
+
+  // PWA Install Prompt State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isPwaInstalled, setIsPwaInstalled] = useState<boolean>(() => {
+    return window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+  });
+  const [showPwaInstallModal, setShowPwaInstallModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    const handleAppInstalled = () => {
+      setIsPwaInstalled(true);
+      setDeferredPrompt(null);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleTriggerPwaInstall = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const choiceResult = await deferredPrompt.userChoice;
+      if (choiceResult.outcome === 'accepted') {
+        setIsPwaInstalled(true);
+      }
+      setDeferredPrompt(null);
+    } else {
+      setShowPwaInstallModal(true);
+    }
+  };
 
   // Real-time Firestore Memory Subscription
   useEffect(() => {
@@ -509,8 +554,9 @@ export default function App() {
 
   return (
     <div className="h-[100dvh] w-screen max-h-[100dvh] overflow-y-auto sm:overflow-hidden flex flex-col justify-between p-2 sm:p-4 pb-3 sm:pb-4 relative bg-slate-950 text-white selection:bg-orange-500 selection:text-white">
-      {/* Background Ambient Glow */}
+      {/* Background Ambient Glow & Snow Particles */}
       <div className="atmosphere" />
+      <SnowParticles />
 
       {/* Upward Dynamic Lighting Aura when Speaking or Listening */}
       <div 
@@ -542,18 +588,28 @@ export default function App() {
           </div>
         </div>
 
-        {/* Action Header Tools with 3-Dot Menu */}
+        {/* Action Header Tools with 3-Dot Menu & PWA Install */}
         <div className="flex items-center gap-2 shrink-0 relative">
+          {/* Direct Install PWA Header Button */}
+          <button
+            onClick={handleTriggerPwaInstall}
+            className="p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-gradient-to-r from-blue-600/30 via-sky-600/30 to-blue-700/30 hover:from-blue-600/40 hover:to-sky-600/40 active:scale-95 text-sky-200 border border-sky-400/50 transition-all flex items-center gap-1.5 text-xs font-bold shadow-md min-h-[38px] relative z-40"
+            title="SANA AI অ্যাপ ইনস্টল করুন (Install App)"
+          >
+            <Download size={16} className="text-sky-300 shrink-0 animate-bounce" />
+            <span className="text-xs font-bold text-sky-100 hidden sm:inline">ইনস্টল করুন (Install)</span>
+          </button>
+
           {/* Main 3-Dot Options Button */}
           <button 
             onClick={() => setShowTopMenu(!showTopMenu)}
-            className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 active:scale-95 text-orange-300 border border-orange-500/40 transition-all flex items-center gap-1.5 text-xs font-bold shadow-lg min-h-[38px] relative z-40"
+            className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-blue-900/30 hover:bg-blue-800/40 active:scale-95 text-sky-200 border border-blue-500/40 transition-all flex items-center gap-1.5 text-xs font-bold shadow-lg min-h-[38px] relative z-40"
             title="সব অপশন (All Options)"
           >
-            <MoreVertical size={18} className="text-orange-400 shrink-0" />
+            <MoreVertical size={18} className="text-sky-300 shrink-0" />
             <span className="text-xs font-bold text-white hidden sm:inline">অপশন (Options)</span>
             {(memories.length > 0 || transcription.length > 0) && (
-              <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
             )}
           </button>
 
@@ -571,12 +627,26 @@ export default function App() {
                   initial={{ opacity: 0, y: 8, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                  className="absolute top-full right-0 mt-2 w-72 sm:w-80 p-3 rounded-2xl bg-slate-950/98 border-2 border-orange-500/60 shadow-[0_25px_60px_rgba(0,0,0,0.95)] backdrop-blur-2xl z-50 flex flex-col gap-2.5 max-h-[85vh] overflow-y-auto"
+                  className="absolute top-full right-0 mt-2 w-72 sm:w-80 p-3 rounded-2xl bg-slate-950/98 border-2 border-blue-500/50 shadow-[0_25px_60px_rgba(0,0,0,0.95)] backdrop-blur-2xl z-50 flex flex-col gap-2.5 max-h-[85vh] overflow-y-auto"
                 >
-                  <div className="flex items-center justify-between px-2 py-1 text-[11px] font-bold text-orange-300 uppercase tracking-wider border-b border-white/10">
+                  <div className="flex items-center justify-between px-2 py-1 text-[11px] font-bold text-sky-300 uppercase tracking-wider border-b border-white/10">
                     <span>⋮ মেনু অপশন (Menu Options)</span>
                     <button onClick={() => setShowTopMenu(false)} className="text-white/50 hover:text-white p-1">✕</button>
                   </div>
+
+                  {/* PWA Install Promo Item */}
+                  <button
+                    onClick={() => { handleTriggerPwaInstall(); setShowTopMenu(false); }}
+                    className="w-full p-2.5 rounded-xl bg-gradient-to-r from-blue-600/30 to-sky-600/30 hover:from-blue-600/40 hover:to-sky-600/40 text-xs font-bold text-sky-200 transition-all flex items-center justify-between border border-sky-400/40 text-left shadow-md"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Download size={16} className="text-sky-300 shrink-0" />
+                      <span>📲 SANA AI অ্যাপ ইনস্টল করুন</span>
+                    </div>
+                    <span className="text-[10px] bg-sky-500 text-slate-950 px-2 py-0.5 rounded-full font-bold">Install</span>
+                  </button>
+
+                  <div className="h-px bg-white/10 my-0.5" />
 
                   {/* 1. Quick Commands Section */}
                   <div className="space-y-1.5">
@@ -586,12 +656,29 @@ export default function App() {
                     </div>
                     <div className="grid grid-cols-2 gap-1.5">
                       <button
+                        onClick={() => { handleQuickShortcut("এখন থেকে আমার সাথে সবসময় বাংলায় কথা বলো। কেমন আছো তুমি?"); setShowTopMenu(false); }}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-sky-500/20 text-xs text-white/90 hover:text-sky-300 transition-all flex items-center gap-1.5 text-left border border-white/5 col-span-2"
+                      >
+                        <Languages size={13} className="text-sky-400 shrink-0" />
+                        <span className="truncate">🇧🇩 বাংলায় কথা বলুন (Speak Bengali)</span>
+                      </button>
+
+                      <button
+                        onClick={() => { handleQuickShortcut("Let's practice Spoken English! Please speak to me in English and correct my mistakes gently."); setShowTopMenu(false); }}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-indigo-500/20 text-xs text-white/90 hover:text-indigo-300 transition-all flex items-center gap-1.5 text-left border border-white/5 col-span-2"
+                      >
+                        <BookOpen size={13} className="text-indigo-400 shrink-0" />
+                        <span className="truncate">🗣️ স্পোকেন ইংলিশ শিখুন (Learn English)</span>
+                      </button>
+
+                      <button
                         onClick={() => { handleQuickShortcut("ইউটিউবে রবীন্দ্র সংগীত চালাও"); setShowTopMenu(false); }}
                         className="p-2 rounded-xl bg-white/5 hover:bg-orange-500/20 text-xs text-white/90 hover:text-orange-300 transition-all flex items-center gap-1.5 text-left border border-white/5"
                       >
                         <Music size={13} className="text-red-400 shrink-0" />
                         <span className="truncate">🎵 ইউটিউব</span>
                       </button>
+
                       <button
                         onClick={() => { handleQuickShortcut("হোয়াটসঅ্যাপ খোলো"); setShowTopMenu(false); }}
                         className="p-2 rounded-xl bg-white/5 hover:bg-emerald-500/20 text-xs text-white/90 hover:text-emerald-300 transition-all flex items-center gap-1.5 text-left border border-white/5"
@@ -599,6 +686,7 @@ export default function App() {
                         <PhoneCall size={13} className="text-emerald-400 shrink-0" />
                         <span className="truncate">📱 হোয়াটসঅ্যাপ</span>
                       </button>
+
                       <button
                         onClick={() => { handleQuickShortcut("আজকের লাইভ আবহাওয়া কেমন?"); setShowTopMenu(false); }}
                         className="p-2 rounded-xl bg-white/5 hover:bg-sky-500/20 text-xs text-white/90 hover:text-sky-300 transition-all flex items-center gap-1.5 text-left border border-white/5"
@@ -606,12 +694,29 @@ export default function App() {
                         <Sparkles size={13} className="text-sky-400 shrink-0" />
                         <span className="truncate">🌤️ আবহাওয়া</span>
                       </button>
+
                       <button
                         onClick={() => { handleQuickShortcut("এখন কটা বাজে এবং তারিখ কত?"); setShowTopMenu(false); }}
                         className="p-2 rounded-xl bg-white/5 hover:bg-amber-500/20 text-xs text-white/90 hover:text-amber-300 transition-all flex items-center gap-1.5 text-left border border-white/5"
                       >
                         <Sparkles size={13} className="text-amber-400 shrink-0" />
                         <span className="truncate">🕒 সময়</span>
+                      </button>
+
+                      <button
+                        onClick={() => { handleQuickShortcut("আমাকে একটি সুন্দর শিক্ষণীয় গল্প শোনাও"); setShowTopMenu(false); }}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-purple-500/20 text-xs text-white/90 hover:text-purple-300 transition-all flex items-center gap-1.5 text-left border border-white/5"
+                      >
+                        <Smile size={13} className="text-purple-400 shrink-0" />
+                        <span className="truncate">📖 গল্প বলুন</span>
+                      </button>
+
+                      <button
+                        onClick={() => { handleQuickShortcut("আমাকে পড়াশোনা এবং কোডিং শেখার ব্যাপারে গাইড করো"); setShowTopMenu(false); }}
+                        className="p-2 rounded-xl bg-white/5 hover:bg-teal-500/20 text-xs text-white/90 hover:text-teal-300 transition-all flex items-center gap-1.5 text-left border border-white/5"
+                      >
+                        <BookOpen size={13} className="text-teal-400 shrink-0" />
+                        <span className="truncate">💡 পড়াশোনা ও কোডিং</span>
                       </button>
                     </div>
                   </div>
@@ -621,14 +726,14 @@ export default function App() {
                   {/* 2. SANA Memory Bank */}
                   <button
                     onClick={() => { setShowMemoryDashboard(true); setShowTopMenu(false); }}
-                    className="w-full p-2.5 rounded-xl bg-orange-500/15 hover:bg-orange-500/25 text-xs font-semibold text-orange-200 transition-all flex items-center justify-between border border-orange-500/30"
+                    className="w-full p-2.5 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 text-xs font-semibold text-sky-200 transition-all flex items-center justify-between border border-blue-500/30"
                   >
                     <div className="flex items-center gap-2">
-                      <Brain size={16} className="text-orange-400 shrink-0" />
+                      <Brain size={16} className="text-sky-400 shrink-0" />
                       <span>🧠 SANA মেমোরি ব্যাংক</span>
                     </div>
                     {memories.length > 0 && (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-orange-500 text-white font-bold">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-sky-500 text-slate-950 font-bold">
                         {memories.length}
                       </span>
                     )}
@@ -649,11 +754,11 @@ export default function App() {
                     className="w-full p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-white/90 transition-all flex items-center justify-between border border-white/10 text-left"
                   >
                     <div className="flex items-center gap-2">
-                      <MessageSquare size={16} className="text-orange-400 shrink-0" />
+                      <MessageSquare size={16} className="text-sky-400 shrink-0" />
                       <span>💬 চ্যাট ও নোটস (Notes & Chat)</span>
                     </div>
                     {transcription.length > 0 && (
-                      <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                      <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
                     )}
                   </button>
 
@@ -712,8 +817,8 @@ export default function App() {
         ) : (
           <div className="w-full h-full grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-4 items-center min-h-0">
             
-            {/* Left Column (3D VRM Stage) - Seamless Open Backdrop without heavy inner border */}
-            <div className="lg:col-span-7 h-[220px] xs:h-[260px] sm:h-[360px] lg:h-full min-h-[180px] w-full relative flex items-center justify-center rounded-2xl sm:rounded-3xl bg-radial from-slate-900/40 via-slate-950/20 to-transparent transition-all overflow-hidden shrink-0">
+            {/* Left Column (3D VRM Stage) - Freestyle Open Stage without box/border */}
+            <div className="lg:col-span-7 h-[360px] xs:h-[400px] sm:h-[480px] lg:h-full min-h-[320px] w-full relative flex items-center justify-center transition-all overflow-hidden shrink-0">
               
               {/* Soft Ambient Radial Light Behind Avatar */}
               <div className={`absolute w-72 h-72 sm:w-96 sm:h-96 rounded-full blur-3xl -z-10 pointer-events-none transition-all duration-700 ${
@@ -728,16 +833,6 @@ export default function App() {
                 onInvalidAvatar={handleResetVRM}
                 className="w-full h-full"
               />
-
-              {/* Interactive Wave Gesture Button on Top-Right */}
-              <button
-                onClick={() => setWaveTrigger(prev => prev + 1)}
-                className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-2xl bg-slate-950/80 border border-white/15 backdrop-blur-md text-[11px] sm:text-xs font-semibold text-orange-300 hover:text-orange-200 hover:bg-slate-900/90 transition-all z-20 shadow-xl flex items-center gap-1.5"
-                title="SANA wave hand greeting 👋"
-              >
-                <Hand size={14} className="text-orange-400 animate-bounce" />
-                <span>👋 হাত নাড়ান (Say Hi)</span>
-              </button>
 
               {/* Live Status Badge & Sound Frequency Equalizer Bar */}
               <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 sm:gap-2 z-20">
@@ -1393,6 +1488,15 @@ export default function App() {
           setMemoryCandidate(null);
         }}
         onDiscard={() => setMemoryCandidate(null)}
+      />
+
+      {/* SANA AI PWA Installation Modal */}
+      <PwaInstallModal
+        isOpen={showPwaInstallModal}
+        onClose={() => setShowPwaInstallModal(false)}
+        onTriggerInstall={handleTriggerPwaInstall}
+        canPromptNative={!!deferredPrompt}
+        isAlreadyInstalled={isPwaInstalled}
       />
     </div>
   );
