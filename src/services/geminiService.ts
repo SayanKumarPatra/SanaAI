@@ -261,6 +261,74 @@ export function connectToSANA(callbacks: {
                 }
                 callbacks.onTranscription(`[System Action: Opened website ${url}]`, true);
                 responseText = `Successfully opened ${url}.`;
+              } else if (name === "open_mobile_or_desktop_app") {
+                const appName = (args.appName || "app").toLowerCase().trim();
+                const q = args.targetQuery || "";
+
+                let targetUrl = "https://google.com";
+                let displayTitle = `Opened ${appName}`;
+
+                if (appName.includes("whatsapp")) {
+                  targetUrl = q ? `https://wa.me/?text=${encodeURIComponent(q)}` : `https://web.whatsapp.com`;
+                  displayTitle = "WhatsApp";
+                } else if (appName.includes("telegram")) {
+                  targetUrl = `https://web.telegram.org`;
+                  displayTitle = "Telegram";
+                } else if (appName.includes("spotify")) {
+                  targetUrl = q ? `https://open.spotify.com/search/${encodeURIComponent(q)}` : `https://open.spotify.com`;
+                  displayTitle = "Spotify";
+                } else if (appName.includes("calculator") || appName.includes("ক্যালকুলেটর")) {
+                  targetUrl = `https://www.google.com/search?q=calculator`;
+                  displayTitle = "Calculator";
+                } else if (appName.includes("camera") || appName.includes("ক্যামেরা")) {
+                  targetUrl = `https://webcamtests.com`;
+                  displayTitle = "Camera Launcher";
+                } else if (appName.includes("facebook") || appName.includes("ফেসবুক")) {
+                  targetUrl = `https://facebook.com`;
+                  displayTitle = "Facebook";
+                } else if (appName.includes("instagram") || appName.includes("ইনস্টাগ্রাম")) {
+                  targetUrl = `https://instagram.com`;
+                  displayTitle = "Instagram";
+                } else if (appName.includes("gmail") || appName.includes("জিেইল") || appName.includes("mail")) {
+                  targetUrl = `https://mail.google.com`;
+                  displayTitle = "Gmail";
+                } else if (appName.includes("map") || appName.includes("ম্যাপ")) {
+                  targetUrl = q ? `https://www.google.com/maps/search/${encodeURIComponent(q)}` : `https://maps.google.com`;
+                  displayTitle = "Google Maps";
+                } else if (appName.includes("phone") || appName.includes("dialer") || appName.includes("কল")) {
+                  targetUrl = q ? `tel:${q}` : `tel:`;
+                  displayTitle = "Phone Dialer";
+                } else if (appName.includes("zoom")) {
+                  targetUrl = `https://zoom.us`;
+                  displayTitle = "Zoom";
+                } else if (appName.includes("note") || appName.includes("keep") || appName.includes("মেমো")) {
+                  targetUrl = `https://keep.google.com`;
+                  displayTitle = "Google Keep / Notes";
+                } else if (appName.includes("youtube")) {
+                  targetUrl = q ? `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}` : `https://youtube.com`;
+                  displayTitle = "YouTube";
+                }
+
+                try {
+                  const link = document.createElement('a');
+                  link.href = targetUrl;
+                  link.target = '_blank';
+                  link.rel = 'noopener noreferrer';
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                } catch (e) {}
+
+                if (callbacks.onExecuteAction) {
+                  callbacks.onExecuteAction({
+                    type: 'website',
+                    title: `Opened App: ${displayTitle}`,
+                    url: targetUrl
+                  });
+                }
+
+                callbacks.onTranscription(`[System Action: Opening ${displayTitle} (${targetUrl})]`, true);
+                responseText = `Successfully launched ${displayTitle}.`;
               } else if (name === "search_google") {
                 const query = args.query || "";
                 const gUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
@@ -392,6 +460,24 @@ export function connectToSANA(callbacks: {
                   }
                 },
                 required: ["query"]
+              }
+            },
+            {
+              name: "open_mobile_or_desktop_app",
+              description: "Automatically launch or open mobile or desktop applications, native software, social media, messenger apps, camera, calculator, phone, or settings requested by voice (e.g. WhatsApp, Telegram, Spotify, Camera, Calculator, Facebook, Instagram, Gmail, Maps, Settings, Notes, Zoom, Chrome, Phone/Dialer).",
+              parameters: {
+                type: Type.OBJECT,
+                properties: {
+                  appName: {
+                    type: Type.STRING,
+                    description: "Name of the app to launch, e.g. whatsapp, telegram, spotify, camera, calculator, facebook, instagram, gmail, maps, settings, notes, zoom, chrome, phone"
+                  },
+                  targetQuery: {
+                    type: Type.STRING,
+                    description: "Optional query or message text"
+                  }
+                },
+                required: ["appName"]
               }
             },
             {

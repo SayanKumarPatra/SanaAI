@@ -54,7 +54,8 @@ import {
   updateLiveLogoInFirebase,
   resetLiveAvatarInFirebase,
   resetLiveLogoInFirebase,
-  checkAdminPassword
+  checkAdminPassword,
+  compressImageForFirestore
 } from './services/avatarService';
 import { saveCustomVRM, resetCustomVRM, getCustomVRMUrl, fetchAndSaveVRMFromUrl } from './utils/avatarStorage';
 
@@ -131,13 +132,15 @@ export default function App() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = async (evt) => {
-      const result = evt.target?.result as string;
-      if (result) {
-        setCustomLogoImg(result);
-        localStorage.setItem('sana_custom_logo', result);
+      const rawResult = evt.target?.result as string;
+      if (rawResult) {
+        // Compress image to ensure it fits safely in Firestore (< 50KB)
+        const compressed = await compressImageForFirestore(rawResult, 300, 300);
+        setCustomLogoImg(compressed);
+        localStorage.setItem('sana_custom_logo', compressed);
         if (isAdmin) {
           try {
-            await updateLiveLogoInFirebase(result);
+            await updateLiveLogoInFirebase(compressed);
           } catch (err) {
             console.warn('Failed to update live logo in Firebase:', err);
           }
@@ -188,10 +191,17 @@ export default function App() {
         } catch (err) {
           console.warn('Could not load live VRM from Firebase URL:', err);
         }
+      } else if (settings.vrmUrl === null) {
+        setCustomAvatarUrl(null);
+        setCustomVRMName(null);
       }
 
       if (settings.logoUrl) {
         setCustomLogoImg(settings.logoUrl);
+        localStorage.setItem('sana_custom_logo', settings.logoUrl);
+      } else if (settings.logoUrl === null) {
+        setCustomLogoImg(null);
+        localStorage.removeItem('sana_custom_logo');
       }
     });
 
@@ -494,7 +504,7 @@ export default function App() {
   const lastTranscript = transcription.length > 0 ? transcription[transcription.length - 1] : null;
 
   return (
-    <div className="h-screen w-screen max-h-screen overflow-hidden flex flex-col justify-between p-3 sm:p-5 relative bg-slate-950 text-white selection:bg-orange-500 selection:text-white">
+    <div className="h-[100dvh] w-screen max-h-[100dvh] overflow-y-auto sm:overflow-hidden flex flex-col justify-between p-2 sm:p-5 relative bg-slate-950 text-white selection:bg-orange-500 selection:text-white">
       {/* Background Ambient Glow */}
       <div className="atmosphere" />
 
@@ -510,33 +520,35 @@ export default function App() {
       />
 
       {/* Header Bar */}
-      <header className="w-full flex justify-between items-center z-10 py-1 px-2 shrink-0">
-        <div className="flex items-center gap-3">
+      <header className="w-full flex justify-between items-center z-10 py-1.5 px-2 sm:px-4 shrink-0 gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <SanaLogo size="sm" customImage={customLogoImg} onClick={() => setWaveTrigger(prev => prev + 1)} />
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg sm:text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-orange-200 bg-clip-text text-transparent">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <h1 className="text-base sm:text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-orange-200 bg-clip-text text-transparent">
                 SANA
               </h1>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-500/15 text-orange-300 border border-orange-500/30 uppercase tracking-widest">
-                3D AI Virtual Assistant
+              <span className="px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold bg-orange-500/15 text-orange-300 border border-orange-500/30 uppercase tracking-wider">
+                3D AI Assistant
               </span>
             </div>
-            <p className="text-[10px] sm:text-[11px] text-white/50 font-medium">Bilingual Assistant & Voice Companion created by Sayan</p>
+            <p className="text-[9px] sm:text-[11px] text-white/60 font-medium truncate max-w-[130px] sm:max-w-none">
+              Voice & AI Companion by Sayan
+            </p>
           </div>
         </div>
 
         {/* Action Header Tools */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <button 
             onClick={() => setShowMemoryDashboard(true)}
-            className="px-3 py-1.5 rounded-xl bg-orange-500/15 hover:bg-orange-500/25 text-orange-300 border border-orange-500/30 transition-all flex items-center gap-1.5 text-xs font-semibold shadow-md relative"
+            className="px-2.5 py-1.5 rounded-xl bg-orange-500/15 hover:bg-orange-500/25 active:scale-95 text-orange-300 border border-orange-500/30 transition-all flex items-center gap-1 sm:gap-1.5 text-xs font-semibold shadow-md relative min-h-[36px]"
             title="SANA Memory Bank"
           >
-            <Brain size={15} className="text-orange-400" />
+            <Brain size={15} className="text-orange-400 shrink-0" />
             <span className="hidden sm:inline">Memory</span>
             {memories.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-orange-500 text-white font-bold ml-0.5">
+              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono bg-orange-500 text-white font-bold ml-0.5">
                 {memories.length}
               </span>
             )}
@@ -544,31 +556,33 @@ export default function App() {
 
           <button 
             onClick={() => setShowSetupModal(true)}
-            className="px-3 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 transition-all flex items-center gap-1.5 text-xs font-semibold shadow-md"
+            className="px-2.5 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 active:scale-95 text-cyan-300 border border-cyan-500/30 transition-all flex items-center gap-1 sm:gap-1.5 text-xs font-semibold shadow-md min-h-[36px]"
             title="Set up Gemini API Key"
           >
-            <Key size={14} className="text-cyan-400" />
-            <span className="hidden sm:inline">SET UP SANA</span>
+            <Key size={14} className="text-cyan-400 shrink-0" />
+            <span className="hidden sm:inline">SET UP</span>
           </button>
 
           <button 
             onClick={() => setShowHistory(!showHistory)}
-            className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 transition-all flex items-center gap-2 text-xs font-medium text-white/90 relative border border-white/10 shadow-md"
+            className="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 transition-all flex items-center gap-1.5 text-xs font-medium text-white/90 relative border border-white/10 shadow-md min-h-[36px]"
             title="Open Chat & Saved Notes"
           >
-            <MessageSquare size={15} className="text-orange-400" />
-            <span className="hidden sm:inline">Notes & Chat</span>
+            <MessageSquare size={15} className="text-orange-400 shrink-0" />
+            <span className="hidden md:inline">Notes & Chat</span>
             {transcription.length > 0 && (
               <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
             )}
           </button>
 
+          {/* Prominent Settings Button for Mobile & Desktop */}
           <button 
             onClick={() => setShowSettings(!showSettings)}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all text-white/90 border border-white/10 shadow-md"
-            title="Settings & Persona"
+            className="px-2.5 py-1.5 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 active:scale-95 transition-all text-purple-200 border border-purple-500/40 shadow-md flex items-center gap-1.5 text-xs font-semibold min-h-[36px]"
+            title="Settings & Admin Setup"
           >
-            <Settings size={18} />
+            <Settings size={16} className="text-purple-300 animate-spin-slow shrink-0" />
+            <span className="text-[11px] sm:text-xs">সেটিং</span>
           </button>
         </div>
       </header>
@@ -614,7 +628,7 @@ export default function App() {
           <div className="w-full h-full grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
             
             {/* Left Column (3D VRM Stage) - Seamless Open Backdrop without heavy inner border */}
-            <div className="lg:col-span-7 h-[360px] sm:h-[420px] lg:h-full w-full relative flex items-center justify-center rounded-3xl bg-radial from-slate-900/40 via-slate-950/20 to-transparent transition-all overflow-hidden">
+            <div className="lg:col-span-7 h-[280px] xs:h-[320px] sm:h-[400px] lg:h-full w-full relative flex items-center justify-center rounded-2xl sm:rounded-3xl bg-radial from-slate-900/40 via-slate-950/20 to-transparent transition-all overflow-hidden shrink-0">
               
               {/* Soft Ambient Radial Light Behind Avatar */}
               <div className={`absolute w-72 h-72 sm:w-96 sm:h-96 rounded-full blur-3xl -z-10 pointer-events-none transition-all duration-700 ${
@@ -633,7 +647,7 @@ export default function App() {
               {/* Interactive Wave Gesture Button on Top-Right */}
               <button
                 onClick={() => setWaveTrigger(prev => prev + 1)}
-                className="absolute top-3 right-3 px-3 py-1.5 rounded-2xl bg-slate-950/80 border border-white/15 backdrop-blur-md text-xs font-semibold text-orange-300 hover:text-orange-200 hover:bg-slate-900/90 transition-all z-20 shadow-xl flex items-center gap-1.5"
+                className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-2xl bg-slate-950/80 border border-white/15 backdrop-blur-md text-[11px] sm:text-xs font-semibold text-orange-300 hover:text-orange-200 hover:bg-slate-900/90 transition-all z-20 shadow-xl flex items-center gap-1.5"
                 title="SANA wave hand greeting 👋"
               >
                 <Hand size={14} className="text-orange-400 animate-bounce" />
@@ -641,7 +655,7 @@ export default function App() {
               </button>
 
               {/* Live Status Badge & Sound Frequency Equalizer Bar */}
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-20">
+              <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 sm:gap-2 z-20">
                 
                 {/* Audio Waveform Equalizer Bars when Active */}
                 {(status === 'speaking' || status === 'listening') && (
@@ -654,7 +668,7 @@ export default function App() {
                   </div>
                 )}
 
-                <div className="px-4 py-1.5 rounded-full bg-slate-950/90 border border-white/15 backdrop-blur-md flex items-center gap-2 text-xs text-white/90 shadow-2xl">
+                <div className="px-3.5 py-1 sm:px-4 sm:py-1.5 rounded-full bg-slate-950/90 border border-white/15 backdrop-blur-md flex items-center gap-2 text-[11px] sm:text-xs text-white/90 shadow-2xl">
                   <span className={`w-2.5 h-2.5 rounded-full ${
                     status === 'speaking' 
                       ? 'bg-orange-500 animate-ping' 
@@ -671,100 +685,79 @@ export default function App() {
               </div>
             </div>
 
-            {/* Right Column (Control Panel & Actions) - Fits laptop screen perfectly */}
-            <div className="lg:col-span-5 h-full flex flex-col justify-center space-y-3.5 sm:space-y-4 px-1 py-1 overflow-y-auto">
+            {/* Right Column (Control Panel & Actions) - Fits laptop & mobile screen perfectly */}
+            <div className="lg:col-span-5 h-full flex flex-col justify-center space-y-2 sm:space-y-3 px-1 py-1 overflow-y-auto">
               
               {/* Welcome & Subtitle Live Stream Box */}
-              <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm relative overflow-hidden">
-                <div className="flex items-center justify-between text-xs text-white/60 mb-1">
-                  <span className="font-medium text-orange-300 flex items-center gap-1.5">
-                    <Sparkles size={13} className="text-orange-400" />
-                    <span>{status === 'speaking' ? '🗣 SANA Live Speaking' : status === 'listening' ? '🎙 SANA Listening' : '✨ SANA Voice Subtitle'}</span>
+              <div className="p-2.5 sm:p-3 rounded-2xl bg-slate-900/80 border border-orange-500/30 backdrop-blur-md relative overflow-hidden shadow-lg shrink-0">
+                <div className="flex items-center justify-between text-[11px] sm:text-xs text-white/70 mb-1">
+                  <span className="font-semibold text-orange-300 flex items-center gap-1.5">
+                    <Sparkles size={12} className="text-orange-400 animate-pulse" />
+                    <span>{status === 'speaking' ? '🗣 SANA কথা বলছেন' : status === 'listening' ? '🎙 SANA শুনছেন' : '✨ লাইভ সাবটাইটেল (Live Subtitle)'}</span>
                   </span>
-                  {userName && <span className="text-[11px] text-white/40">{userName}</span>}
+                  {userName && <span className="text-[10px] font-mono text-white/50 px-1.5 py-0.5 rounded bg-white/10">{userName}</span>}
                 </div>
                 
-                <p className="text-xs sm:text-sm text-white/90 font-medium leading-relaxed italic line-clamp-3">
-                  {lastTranscript 
-                    ? `"${lastTranscript.text}"` 
-                    : (userName ? `নমস্কার ${userName}, আমি সানা। নিচের বাটন চেপে সরাসরি কথা বলুন!` : "নমস্কার! আমি সানা, আপনার ৩ডি ভার্চুয়াল অ্যাসিস্ট্যান্ট।")}
-                </p>
+                <div className="max-h-20 sm:max-h-24 overflow-y-auto custom-scrollbar pr-1">
+                  <p className="text-xs sm:text-sm text-white font-medium leading-relaxed italic break-words">
+                    {lastTranscript 
+                      ? `"${lastTranscript.text}"` 
+                      : (userName ? `নমস্কার ${userName}, আমি সানা। নিচের মাইক্রোফোন বাটনে চাপ দিয়ে কথা বলুন!` : "নমস্কার! আমি সানা। নিচের মাইক্রোফোন বাটনে চাপ দিয়ে সরাসরি কথা বলুন।")}
+                  </p>
+                </div>
               </div>
 
-              {/* PROMINENT DIRECT VOICE TALK HERO BUTTON */}
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={status === 'idle' || status === 'error' ? handleConnect : handleDisconnect}
-                className={`w-full py-4 px-5 rounded-2xl flex items-center justify-center gap-3 font-bold text-base transition-all shadow-2xl relative overflow-hidden group ${
-                  status === 'idle'
-                    ? 'bg-gradient-to-r from-orange-500 via-rose-500 to-amber-500 text-white shadow-orange-500/30 hover:shadow-orange-500/50'
-                    : status === 'connecting'
-                      ? 'bg-amber-500/80 text-white animate-pulse'
-                      : status === 'speaking' || status === 'listening'
-                        ? 'bg-emerald-500 text-slate-950 font-extrabold shadow-emerald-500/40 hover:bg-emerald-400'
-                        : 'bg-red-500 text-white shadow-red-500/30'
-                }`}
-              >
-                {/* Glowing Pulse Ring when connected */}
-                {(status === 'listening' || status === 'speaking') && (
-                  <span className="absolute inset-0 rounded-2xl border-2 border-white animate-ping opacity-30 pointer-events-none" />
-                )}
+              {/* CIRCULAR DIRECT VOICE TALK HERO BUTTON */}
+              <div className="flex flex-col items-center justify-center my-1 shrink-0 gap-1.5">
+                <motion.button
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.92 }}
+                  onClick={status === 'idle' || status === 'error' ? handleConnect : handleDisconnect}
+                  className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center transition-all shadow-2xl relative cursor-pointer group border-2 border-white/20 ${
+                    status === 'idle'
+                      ? 'bg-gradient-to-tr from-orange-500 via-rose-500 to-amber-500 text-white shadow-orange-500/40 hover:shadow-orange-500/60'
+                      : status === 'connecting'
+                        ? 'bg-amber-500 text-white animate-pulse'
+                        : status === 'speaking' || status === 'listening'
+                          ? 'bg-emerald-500 text-slate-950 shadow-emerald-500/50 hover:bg-emerald-400'
+                          : 'bg-red-500 text-white shadow-red-500/40'
+                  }`}
+                  title="SANA Live Voice Call"
+                >
+                  {/* Outer Glowing Rings when connected */}
+                  {(status === 'listening' || status === 'speaking') && (
+                    <>
+                      <span className="absolute -inset-2 rounded-full border-2 border-emerald-400 animate-ping opacity-40 pointer-events-none" />
+                      <span className="absolute -inset-4 rounded-full border border-emerald-400/30 animate-pulse pointer-events-none" />
+                    </>
+                  )}
 
-                {status === 'idle' && (
-                  <>
-                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform shrink-0">
-                      <Mic className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="flex flex-col items-start text-left">
-                      <span className="text-sm sm:text-base font-bold leading-tight">সানার সাথে সরাসরি কথা বলুন</span>
-                      <span className="text-[11px] font-normal text-white/80">Click to start live voice talk</span>
-                    </div>
-                  </>
-                )}
+                  {status === 'idle' && (
+                    <>
+                      <span className="absolute -inset-1 rounded-full bg-gradient-to-tr from-orange-500 to-amber-400 opacity-40 blur-md group-hover:opacity-75 transition-opacity pointer-events-none" />
+                      <Mic className="w-7 h-7 sm:w-9 sm:h-9 text-white relative z-10" />
+                    </>
+                  )}
 
-                {status === 'connecting' && (
-                  <>
-                    <Radio className="w-6 h-6 animate-spin text-white shrink-0" />
-                    <span className="text-sm font-bold">সানার সাথে সংযোগ হচ্ছে...</span>
-                  </>
-                )}
+                  {status === 'connecting' && <Radio className="w-7 h-7 sm:w-8 sm:h-8 animate-spin text-white relative z-10" />}
+                  {status === 'listening' && <Mic className="w-7 h-7 sm:w-9 sm:h-9 text-slate-950 animate-bounce relative z-10" />}
+                  {status === 'speaking' && <Volume2 className="w-7 h-7 sm:w-9 sm:h-9 text-slate-950 animate-pulse relative z-10" />}
+                  {status === 'error' && <PhoneCall className="w-7 h-7 sm:w-8 sm:h-8 text-white relative z-10" />}
+                </motion.button>
 
-                {status === 'listening' && (
-                  <>
-                    <div className="w-10 h-10 rounded-xl bg-slate-950/20 flex items-center justify-center animate-bounce shrink-0">
-                      <Mic className="w-5 h-5 text-slate-950" />
-                    </div>
-                    <div className="flex flex-col items-start text-left">
-                      <span className="text-sm font-black leading-tight text-slate-950">SANA শুনছেন, বলুন... (Tap to End)</span>
-                      <span className="text-[11px] font-medium text-slate-900/80">Speak naturally in Bengali or English</span>
-                    </div>
-                  </>
-                )}
-
-                {status === 'speaking' && (
-                  <>
-                    <div className="w-10 h-10 rounded-xl bg-slate-950/20 flex items-center justify-center animate-pulse shrink-0">
-                      <Volume2 className="w-5 h-5 text-slate-950" />
-                    </div>
-                    <div className="flex flex-col items-start text-left">
-                      <span className="text-sm font-black leading-tight text-slate-950">SANA কথা বলছেন... (Tap to End)</span>
-                      <span className="text-[11px] font-medium text-slate-900/80">Listen to SANA's response</span>
-                    </div>
-                  </>
-                )}
-
-                {status === 'error' && (
-                  <>
-                    <PhoneCall className="w-5 h-5 text-white shrink-0" />
-                    <span className="text-sm font-bold">পুনরায় চেষ্টা করুন (Retry Connection)</span>
-                  </>
-                )}
-              </motion.button>
+                <div className="text-center">
+                  <span className="text-xs sm:text-sm font-bold text-white/95 block leading-tight">
+                    {status === 'idle' ? 'সরাসরি কথা বলুন' : status === 'connecting' ? 'সংযুক্ত হচ্ছে...' : status === 'listening' ? 'SANA শুনছেন...' : status === 'speaking' ? 'SANA কথা বলছেন...' : 'পুনরায় চেষ্টা করুন'}
+                  </span>
+                  <span className="text-[10px] text-white/50 block font-medium">
+                    {status === 'idle' ? 'মাইক্রোফোনে ট্যাপ করে কথা শুরু করুন' : 'কল বন্ধ করতে আবার চাপুন'}
+                  </span>
+                </div>
+              </div>
 
               {/* Auxiliary Controls (Screen Share & Disconnect) */}
               {status !== 'idle' ? (
-                <div className="flex items-center justify-center gap-2.5 w-full">
+                <div className="flex items-center justify-center gap-2 w-full shrink-0">
                   <button
                     onClick={() => {
                       if (isSharing) {
@@ -779,21 +772,21 @@ export default function App() {
                         });
                       }
                     }}
-                    className={`flex-1 py-2.5 px-3.5 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold transition-all border ${
+                    className={`flex-1 py-1.5 px-3 rounded-xl flex items-center justify-center gap-1.5 text-[11px] font-semibold transition-all border ${
                       isSharing 
                         ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-lg' 
                         : 'bg-white/5 text-white/90 border-white/10 hover:bg-white/10'
                     }`}
                   >
-                    {isSharing ? <MonitorOff size={16} /> : <Monitor size={16} />}
-                    <span>{isSharing ? "স্ক্রিন শেয়ার বন্ধ করুন" : "ল্যাপটপের স্ক্রিন দেখান"}</span>
+                    {isSharing ? <MonitorOff size={14} /> : <Monitor size={14} />}
+                    <span>{isSharing ? "স্ক্রিন শেয়ার বন্ধ" : "স্ক্রিন দেখান"}</span>
                   </button>
 
                   <button
                     onClick={handleDisconnect}
-                    className="py-2.5 px-4 rounded-xl bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0"
+                    className="py-1.5 px-3 rounded-xl bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 text-[11px] font-semibold transition-all flex items-center gap-1 shrink-0"
                   >
-                    <Power size={15} />
+                    <Power size={14} />
                     <span>কল কাটুন</span>
                   </button>
                 </div>
@@ -808,47 +801,58 @@ export default function App() {
                       }
                     });
                   }}
-                  className="w-full py-2.5 px-3.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 border border-white/10 text-xs font-medium transition-all flex items-center justify-center gap-2"
+                  className="w-full py-1.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 border border-white/10 text-[11px] font-medium transition-all flex items-center justify-center gap-1.5 shrink-0"
                 >
-                  <Video size={15} className="text-emerald-400" />
-                  <span>স্ক্রিন দেখার অনুমতি দিয়ে কল শুরু করুন</span>
+                  <Video size={14} className="text-emerald-400" />
+                  <span>স্ক্রিন দেখার অনুমতি দিন</span>
                 </button>
               )}
 
               {/* Quick Action Shortcuts Bar (বাংলা) */}
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-semibold text-white/50 uppercase tracking-wider block">কুইক অ্যাকশন (Quick Commands)</span>
-                <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1 pt-1.5 border-t border-white/10 shrink-0">
+                <div className="flex justify-between items-center text-[9px] sm:text-[10px] font-semibold text-white/50 uppercase tracking-wider">
+                  <span>কুইক কমান্ড (Quick Commands)</span>
+                  <span className="text-[9px] text-purple-300/80 font-mono">Mobile Compact</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
                   <button
                     onClick={() => handleQuickShortcut("ইউটিউবে রবীন্দ্র সংগীত চালাও")}
-                    className="p-2.5 rounded-xl bg-white/5 hover:bg-orange-500/20 border border-white/10 hover:border-orange-500/40 text-xs text-white/90 hover:text-orange-300 transition-all flex items-center gap-2 text-left shadow-sm"
+                    className="px-2 py-1 rounded-lg bg-white/5 hover:bg-orange-500/20 active:scale-95 border border-white/10 hover:border-orange-500/40 text-[10px] sm:text-[11px] text-white/90 hover:text-orange-300 transition-all flex items-center gap-1 shadow-sm"
                   >
-                    <Music size={14} className="text-red-400 shrink-0" />
-                    <span className="truncate">🎵 ইউটিউবে গান চালাও</span>
+                    <Music size={12} className="text-red-400 shrink-0" />
+                    <span>🎵 মিউজিক</span>
                   </button>
 
                   <button
-                    onClick={() => handleQuickShortcut("আমার ল্যাপটপ স্ক্রিন দেখুন এবং সাহায্য করুন")}
-                    className="p-2.5 rounded-xl bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/40 text-xs text-white/90 hover:text-emerald-300 transition-all flex items-center gap-2 text-left shadow-sm"
+                    onClick={() => handleQuickShortcut("হোয়াটসঅ্যাপ খোলো")}
+                    className="px-2 py-1 rounded-lg bg-white/5 hover:bg-emerald-500/20 active:scale-95 border border-white/10 hover:border-emerald-500/40 text-[10px] sm:text-[11px] text-white/90 hover:text-emerald-300 transition-all flex items-center gap-1 shadow-sm"
                   >
-                    <Monitor size={14} className="text-emerald-400 shrink-0" />
-                    <span className="truncate">💻 স্ক্রিন অ্যানালাইজ</span>
+                    <PhoneCall size={12} className="text-emerald-400 shrink-0" />
+                    <span>📱 হোয়াটসঅ্যাপ</span>
                   </button>
 
                   <button
-                    onClick={() => handleQuickShortcut("সানা, আমাকে কিছু ভালো কাজের টিপস দাও")}
-                    className="p-2.5 rounded-xl bg-white/5 hover:bg-amber-500/20 border border-white/10 hover:border-amber-500/40 text-xs text-white/90 hover:text-amber-300 transition-all flex items-center gap-2 text-left shadow-sm"
+                    onClick={() => handleQuickShortcut("আজকের লাইভ আবহাওয়া কেমন?")}
+                    className="px-2 py-1 rounded-lg bg-white/5 hover:bg-sky-500/20 active:scale-95 border border-white/10 hover:border-sky-500/40 text-[10px] sm:text-[11px] text-white/90 hover:text-sky-300 transition-all flex items-center gap-1 shadow-sm"
                   >
-                    <Sparkles size={14} className="text-amber-400 shrink-0" />
-                    <span className="truncate">💡 সানার পরামর্শ</span>
+                    <Sparkles size={12} className="text-sky-400 shrink-0" />
+                    <span>🌤️ আবহাওয়া</span>
                   </button>
 
                   <button
-                    onClick={() => handleQuickShortcut("বাংলায় আমার সাথে কথা বলুন")}
-                    className="p-2.5 rounded-xl bg-white/5 hover:bg-purple-500/20 border border-white/10 hover:border-purple-500/40 text-xs text-white/90 hover:text-purple-300 transition-all flex items-center gap-2 text-left shadow-sm"
+                    onClick={() => handleQuickShortcut("এখন কটা বাজে এবং তারিখ কত?")}
+                    className="px-2 py-1 rounded-lg bg-white/5 hover:bg-amber-500/20 active:scale-95 border border-white/10 hover:border-amber-500/40 text-[10px] sm:text-[11px] text-white/90 hover:text-amber-300 transition-all flex items-center gap-1 shadow-sm"
                   >
-                    <Smile size={14} className="text-purple-400 shrink-0" />
-                    <span className="truncate">💬 বাংলায় কথা বলুন</span>
+                    <Sparkles size={12} className="text-amber-400 shrink-0" />
+                    <span>🕒 সময়</span>
+                  </button>
+
+                  <button
+                    onClick={() => setShowSettings(true)}
+                    className="px-2 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 active:scale-95 border border-purple-500/40 text-[10px] sm:text-[11px] font-semibold text-purple-200 transition-all flex items-center gap-1 shadow-sm"
+                  >
+                    <Settings size={12} className="text-purple-300 animate-spin-slow shrink-0" />
+                    <span>⚙️ সেটিং</span>
                   </button>
                 </div>
               </div>
@@ -976,23 +980,36 @@ export default function App() {
       {/* Settings & Voice Customization Sidebar */}
       <AnimatePresence>
         {showSettings && (
-          <motion.div
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            className="fixed inset-y-0 right-0 w-84 sm:w-96 glass-card m-3 z-30 p-5 flex flex-col justify-between border border-white/15 shadow-2xl rounded-3xl max-h-[calc(100vh-1.5rem)] overflow-hidden"
-          >
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSettings(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+            />
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              className="fixed inset-y-0 right-0 w-full sm:w-96 max-w-full glass-card m-0 sm:m-3 z-50 p-4 sm:p-5 flex flex-col justify-between border-l sm:border border-white/15 shadow-2xl rounded-none sm:rounded-3xl h-full max-h-screen sm:max-h-[calc(100vh-1.5rem)] overflow-hidden"
+            >
             {/* Header Fixed */}
             <div className="flex justify-between items-center border-b border-white/10 pb-3 shrink-0">
               <div>
-                <h2 className="text-lg font-bold text-white">SANA Settings</h2>
-                <p className="text-[11px] text-white/40">Voice synthesis & assistant preferences</p>
+                <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                  <Settings size={18} className="text-purple-400" />
+                  <span>SANA সেটিং (Settings)</span>
+                </h2>
+                <p className="text-[10px] sm:text-[11px] text-white/50">Voice synthesis, 3D Avatar & Admin Controls</p>
               </div>
               <button 
                 onClick={() => setShowSettings(false)} 
-                className="p-1.5 text-white/50 hover:text-white rounded-lg hover:bg-white/10"
+                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 active:scale-95 text-white/90 rounded-xl transition-all text-xs font-semibold flex items-center gap-1.5 border border-white/15 min-h-[38px]"
+                title="Close settings"
               >
-                <X size={18} />
+                <X size={16} />
+                <span>বন্ধ করুন</span>
               </button>
             </div>
 
@@ -1301,8 +1318,9 @@ export default function App() {
               </p>
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </>
+      )}
+    </AnimatePresence>
 
       {/* Chat & Notes Panel */}
       <ChatPanel

@@ -117,16 +117,21 @@ export function AvatarCanvas({
 
     const cameraTargets: Record<string, { pos: [number, number, number]; lookAt: [number, number, number] }> = {
       head: { pos: [0, 1.35, 1.45], lookAt: [0, 1.38, 0] },
-      upper: { pos: [0, 1.10, 2.45], lookAt: [0, 1.15, 0] },
-      full: { pos: [0, 0.88, 3.5], lookAt: [0, 0.95, 0] }
+      upper: { pos: [0, 1.10, 2.2], lookAt: [0, 1.15, 0] },
+      full: { pos: [0, 0.95, 3.1], lookAt: [0, 0.98, 0] }
     };
 
     const cameraModeRef = { current: cameraMode };
     cameraModeRef.current = cameraMode;
 
+    const aspect = container.clientWidth / container.clientHeight;
+    // Adjust vertical FOV if aspect ratio is narrow to prevent top head clipping
+    const baseFov = 32;
+    const computedFov = aspect < 1 ? Math.min(48, baseFov / aspect) : baseFov;
+
     const camera = new THREE.PerspectiveCamera(
-      32,
-      container.clientWidth / container.clientHeight,
+      computedFov,
+      aspect,
       0.1,
       20
     );
@@ -462,7 +467,9 @@ export function AvatarCanvas({
 
     const handleResize = () => {
       if (!container) return;
-      camera.aspect = container.clientWidth / container.clientHeight;
+      const currentAspect = container.clientWidth / container.clientHeight;
+      camera.aspect = currentAspect;
+      camera.fov = currentAspect < 1 ? Math.min(48, baseFov / currentAspect) : baseFov;
       camera.updateProjectionMatrix();
       renderer.setSize(container.clientWidth, container.clientHeight);
     };
@@ -507,7 +514,7 @@ export function AvatarCanvas({
 
       <div
         ref={containerRef}
-        className="w-full h-full min-h-[450px] sm:min-h-[550px]"
+        className="w-full h-full min-h-[220px] xs:min-h-[260px] sm:min-h-[380px] lg:min-h-[480px]"
       />
     </div>
   );
