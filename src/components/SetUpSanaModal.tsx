@@ -98,7 +98,7 @@ export function SetUpSanaModal({ isOpen, onClose, onSaveKey, currentKey = '' }: 
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+      <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -111,10 +111,11 @@ export function SetUpSanaModal({ isOpen, onClose, onSaveKey, currentKey = '' }: 
           {/* Close Button if user wants to cancel or close */}
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-full bg-slate-800/50 hover:bg-slate-800 transition-colors"
+            className="absolute top-4 right-4 px-3 py-1.5 bg-orange-500/20 hover:bg-orange-500/30 text-orange-200 rounded-xl transition-all text-xs font-bold flex items-center gap-1 border border-orange-500/40 min-h-[36px] active:scale-95 shadow-md z-10"
             title="Close Setup"
           >
-            <X size={18} />
+            <X size={16} className="text-orange-400" />
+            <span>বন্ধ করুন</span>
           </button>
 
           {/* Top Key Icon Box */}

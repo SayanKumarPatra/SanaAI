@@ -1,6 +1,15 @@
 {
   "short_name": "SANA",
   "name": "SANA - 3D AI Virtual Assistant",
+  "description": "Interactive 3D Voice & AI Companion with Memory, Bengali Voice Assistant & Real-time AI Features.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#030509",
+  "theme_color": "#f97316",
+  "categories": ["productivity", "utilities", "personalization"],
   "icons": [
     {
       "src": "/favicon-16.jpg",
@@ -15,27 +24,32 @@
     {
       "src": "/icon-72x72.jpg",
       "type": "image/jpeg",
-      "sizes": "72x72"
+      "sizes": "72x72",
+      "purpose": "any"
     },
     {
       "src": "/icon-96x96.jpg",
       "type": "image/jpeg",
-      "sizes": "96x96"
+      "sizes": "96x96",
+      "purpose": "any"
     },
     {
       "src": "/icon-128x128.jpg",
       "type": "image/jpeg",
-      "sizes": "128x128"
+      "sizes": "128x128",
+      "purpose": "any"
     },
     {
       "src": "/icon-144x144.jpg",
       "type": "image/jpeg",
-      "sizes": "144x144"
+      "sizes": "144x144",
+      "purpose": "any"
     },
     {
       "src": "/icon-152x152.jpg",
       "type": "image/jpeg",
-      "sizes": "152x152"
+      "sizes": "152x152",
+      "purpose": "any"
     },
     {
       "src": "/apple-touch-icon.jpg",
@@ -45,22 +59,26 @@
     {
       "src": "/icon-192x192.jpg",
       "type": "image/jpeg",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any"
     },
     {
       "src": "/icon-256x256.jpg",
       "type": "image/jpeg",
-      "sizes": "256x256"
+      "sizes": "256x256",
+      "purpose": "any"
     },
     {
       "src": "/icon-384x384.jpg",
       "type": "image/jpeg",
-      "sizes": "384x384"
+      "sizes": "384x384",
+      "purpose": "any"
     },
     {
       "src": "/icon-512x512.jpg",
       "type": "image/jpeg",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any"
     },
     {
       "src": "/maskable-icon.jpg",
@@ -77,17 +95,14 @@
     {
       "src": "/icon-1024x1024.jpg",
       "type": "image/jpeg",
-      "sizes": "1024x1024"
+      "sizes": "1024x1024",
+      "purpose": "any"
     },
     {
       "src": "/icon-2048x2048.jpg",
       "type": "image/jpeg",
-      "sizes": "2048x2048"
+      "sizes": "2048x2048",
+      "purpose": "any"
     }
-  ],
-  "start_url": "/",
-  "background_color": "#030509",
-  "theme_color": "#f97316",
-  "display": "standalone",
-  "orientation": "portrait"
+  ]
 }

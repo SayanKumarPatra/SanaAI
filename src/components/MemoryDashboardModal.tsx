@@ -164,7 +164,7 @@ export function MemoryDashboardModal({ isOpen, onClose, memories }: MemoryDashbo
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md">
+      <div className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -201,10 +201,11 @@ export function MemoryDashboardModal({ isOpen, onClose, memories }: MemoryDashbo
 
               <button
                 onClick={onClose}
-                className="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 transition-colors"
+                className="px-3 py-2 bg-orange-500/20 hover:bg-orange-500/30 text-orange-200 rounded-xl transition-all text-xs font-bold flex items-center gap-1 border border-orange-500/40 min-h-[38px] active:scale-95 shadow-md"
                 title="Close Dashboard"
               >
-                <X size={18} />
+                <X size={18} className="text-orange-400" />
+                <span>বন্ধ করুন</span>
               </button>
             </div>
           </div>

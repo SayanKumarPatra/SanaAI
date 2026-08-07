@@ -508,7 +508,7 @@ export default function App() {
   const lastTranscript = transcription.length > 0 ? transcription[transcription.length - 1] : null;
 
   return (
-    <div className="h-[100dvh] w-screen max-h-[100dvh] overflow-y-auto sm:overflow-hidden flex flex-col justify-between p-2 sm:p-5 relative bg-slate-950 text-white selection:bg-orange-500 selection:text-white">
+    <div className="h-[100dvh] w-screen max-h-[100dvh] overflow-y-auto sm:overflow-hidden flex flex-col justify-between p-2 sm:p-4 pb-3 sm:pb-4 relative bg-slate-950 text-white selection:bg-orange-500 selection:text-white">
       {/* Background Ambient Glow */}
       <div className="atmosphere" />
 
@@ -524,7 +524,7 @@ export default function App() {
       />
 
       {/* Header Bar */}
-      <header className="w-full flex justify-between items-center relative z-[100] py-1.5 px-2 sm:px-4 shrink-0 gap-2">
+      <header className="w-full flex justify-between items-center relative z-30 py-1.5 px-2 sm:px-4 shrink-0 gap-2">
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <SanaLogo size="sm" customImage={customLogoImg} onClick={() => setWaveTrigger(prev => prev + 1)} />
           <div>
@@ -547,7 +547,7 @@ export default function App() {
           {/* Main 3-Dot Options Button */}
           <button 
             onClick={() => setShowTopMenu(!showTopMenu)}
-            className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 active:scale-95 text-orange-300 border border-orange-500/40 transition-all flex items-center gap-1.5 text-xs font-bold shadow-lg min-h-[38px] relative z-[101]"
+            className="p-2 sm:px-3 sm:py-1.5 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 active:scale-95 text-orange-300 border border-orange-500/40 transition-all flex items-center gap-1.5 text-xs font-bold shadow-lg min-h-[38px] relative z-40"
             title="সব অপশন (All Options)"
           >
             <MoreVertical size={18} className="text-orange-400 shrink-0" />
@@ -563,7 +563,7 @@ export default function App() {
               <>
                 {/* Backdrop Overlay to close menu on outside click */}
                 <div 
-                  className="fixed inset-0 z-[95] bg-black/60 backdrop-blur-xs" 
+                  className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs" 
                   onClick={() => setShowTopMenu(false)} 
                 />
 
@@ -571,7 +571,7 @@ export default function App() {
                   initial={{ opacity: 0, y: 8, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                  className="absolute top-full right-0 mt-2 w-72 sm:w-80 p-3 rounded-2xl bg-slate-950/98 border-2 border-orange-500/60 shadow-[0_25px_60px_rgba(0,0,0,0.95)] backdrop-blur-2xl z-[100] flex flex-col gap-2.5 max-h-[85vh] overflow-y-auto"
+                  className="absolute top-full right-0 mt-2 w-72 sm:w-80 p-3 rounded-2xl bg-slate-950/98 border-2 border-orange-500/60 shadow-[0_25px_60px_rgba(0,0,0,0.95)] backdrop-blur-2xl z-50 flex flex-col gap-2.5 max-h-[85vh] overflow-y-auto"
                 >
                   <div className="flex items-center justify-between px-2 py-1 text-[11px] font-bold text-orange-300 uppercase tracking-wider border-b border-white/10">
                     <span>⋮ মেনু অপশন (Menu Options)</span>
@@ -673,7 +673,7 @@ export default function App() {
       </header>
 
       {/* Main Content Area - Responsive 2-Column Desktop / Split Mobile */}
-      <main className="flex-1 min-h-0 w-full my-2 relative z-10 overflow-y-auto lg:overflow-hidden">
+      <main className="flex-1 min-h-0 w-full my-1 sm:my-2 relative z-10 overflow-y-auto lg:overflow-hidden">
         {!userName && status === 'idle' ? (
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
@@ -710,10 +710,10 @@ export default function App() {
             </div>
           </motion.div>
         ) : (
-          <div className="w-full h-full grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+          <div className="w-full h-full grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-4 items-center min-h-0">
             
             {/* Left Column (3D VRM Stage) - Seamless Open Backdrop without heavy inner border */}
-            <div className="lg:col-span-7 h-[280px] xs:h-[320px] sm:h-[400px] lg:h-full w-full relative flex items-center justify-center rounded-2xl sm:rounded-3xl bg-radial from-slate-900/40 via-slate-950/20 to-transparent transition-all overflow-hidden shrink-0">
+            <div className="lg:col-span-7 h-[220px] xs:h-[260px] sm:h-[360px] lg:h-full min-h-[180px] w-full relative flex items-center justify-center rounded-2xl sm:rounded-3xl bg-radial from-slate-900/40 via-slate-950/20 to-transparent transition-all overflow-hidden shrink-0">
               
               {/* Soft Ambient Radial Light Behind Avatar */}
               <div className={`absolute w-72 h-72 sm:w-96 sm:h-96 rounded-full blur-3xl -z-10 pointer-events-none transition-all duration-700 ${
@@ -771,7 +771,7 @@ export default function App() {
             </div>
 
             {/* Right Column (Control Panel & Actions) - Fits laptop & mobile screen perfectly */}
-            <div className="lg:col-span-5 h-full flex flex-col justify-center space-y-2 sm:space-y-3 px-1 py-1 overflow-y-auto">
+            <div className="lg:col-span-5 flex flex-col justify-center space-y-2 sm:space-y-3 px-1 py-1 shrink-0 overflow-y-auto min-h-0">
               
               {/* Welcome & Subtitle Live Stream Box */}
               <div className="p-2.5 sm:p-3 rounded-2xl bg-slate-900/80 border border-orange-500/30 backdrop-blur-md relative overflow-hidden shadow-lg shrink-0">
@@ -1023,13 +1023,13 @@ export default function App() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowSettings(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+              className="fixed inset-0 bg-black/80 backdrop-blur-md z-[190]"
             />
             <motion.div
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
-              className="fixed inset-y-0 right-0 w-full sm:w-96 max-w-full glass-card m-0 sm:m-3 z-50 p-4 sm:p-5 flex flex-col justify-between border-l sm:border border-white/15 shadow-2xl rounded-none sm:rounded-3xl h-full max-h-screen sm:max-h-[calc(100vh-1.5rem)] overflow-hidden"
+              className="fixed inset-y-0 right-0 w-full sm:w-96 max-w-full bg-slate-950/98 sm:bg-slate-900/95 m-0 sm:m-3 z-[200] p-4 sm:p-5 flex flex-col justify-between border-l sm:border border-white/15 shadow-2xl rounded-none sm:rounded-3xl h-full max-h-screen sm:max-h-[calc(100vh-1.5rem)] overflow-hidden"
             >
             {/* Header Fixed */}
             <div className="flex justify-between items-center border-b border-white/10 pb-3 shrink-0">
@@ -1042,10 +1042,10 @@ export default function App() {
               </div>
               <button 
                 onClick={() => setShowSettings(false)} 
-                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 active:scale-95 text-white/90 rounded-xl transition-all text-xs font-semibold flex items-center gap-1.5 border border-white/15 min-h-[38px]"
+                className="px-3.5 py-2 bg-orange-500/20 hover:bg-orange-500/30 active:scale-95 text-orange-200 rounded-xl transition-all text-xs font-bold flex items-center gap-1.5 border border-orange-500/40 min-h-[40px] shadow-md shrink-0"
                 title="Close settings"
               >
-                <X size={16} />
+                <X size={18} className="text-orange-400" />
                 <span>বন্ধ করুন</span>
               </button>
             </div>

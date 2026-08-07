@@ -168,11 +168,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   return (
     <AnimatePresence>
       <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="fixed inset-0 bg-black/75 backdrop-blur-md z-[190]"
+      />
+      <motion.div
         initial={{ x: '100%', opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: '100%', opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        className="fixed inset-y-0 right-0 w-full sm:w-[420px] bg-slate-950/95 backdrop-blur-xl border-l border-white/10 z-50 flex flex-col shadow-2xl"
+        className="fixed inset-y-0 right-0 w-full sm:w-[420px] bg-slate-950/98 backdrop-blur-2xl border-l border-white/15 z-[200] flex flex-col shadow-2xl"
       >
         {/* Panel Header */}
         <div className="p-5 border-b border-white/10 flex flex-col gap-4 bg-white/5">
@@ -208,9 +215,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               )}
               <button
                 onClick={onClose}
-                className="p-2 text-white/60 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+                className="px-3 py-1.5 bg-orange-500/20 hover:bg-orange-500/30 text-orange-200 rounded-xl transition-all text-xs font-bold flex items-center gap-1 border border-orange-500/40 min-h-[38px] active:scale-95 shadow-md"
+                title="Close Notes & Chat"
               >
-                <X size={20} />
+                <X size={18} className="text-orange-400" />
+                <span>বন্ধ করুন</span>
               </button>
             </div>
           </div>

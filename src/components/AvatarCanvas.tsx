@@ -82,6 +82,7 @@ export function AvatarCanvas({
 }: AvatarCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
+  const [hasAvatarModel, setHasAvatarModel] = useState(false);
 
   const vrmRef = useRef<VRM | null>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
@@ -168,115 +169,6 @@ export function AvatarCanvas({
 
     const clock = new THREE.Clock();
 
-    // Procedural 3D SANA Bot Fallback Mesh Objects
-    let proceduralGroup: THREE.Group | null = null;
-    let proceduralMouth: THREE.Mesh | null = null;
-    let proceduralRightArm: THREE.Group | null = null;
-
-    function buildProceduralSanaBot(): THREE.Group {
-      const botGroup = new THREE.Group();
-      botGroup.position.set(0, 0.1, 0);
-
-      const skinMat = new THREE.MeshStandardMaterial({
-        color: 0xffe3d1,
-        roughness: 0.35,
-        metalness: 0.05
-      });
-      const hairMat = new THREE.MeshStandardMaterial({
-        color: 0x1e1b18,
-        roughness: 0.6,
-        metalness: 0.1
-      });
-      const hoodieMat = new THREE.MeshStandardMaterial({
-        color: 0x0f172a,
-        roughness: 0.5,
-        metalness: 0.2
-      });
-      const neonOrangeMat = new THREE.MeshStandardMaterial({
-        color: 0xf97316,
-        emissive: 0xea580c,
-        emissiveIntensity: 0.8,
-        roughness: 0.2
-      });
-      const eyeMat = new THREE.MeshStandardMaterial({
-        color: 0x020617,
-        roughness: 0.1
-      });
-
-      // Head
-      const headGeo = new THREE.SphereGeometry(0.25, 32, 32);
-      headGeo.scale(1, 1.15, 0.95);
-      const headMesh = new THREE.Mesh(headGeo, skinMat);
-      headMesh.position.set(0, 1.1, 0);
-      botGroup.add(headMesh);
-
-      // Hair
-      const hairTop = new THREE.Mesh(new THREE.SphereGeometry(0.27, 24, 24), hairMat);
-      hairTop.position.set(0, 1.15, -0.02);
-      botGroup.add(hairTop);
-
-      const ponytail = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.45, 16), hairMat);
-      ponytail.rotation.x = -Math.PI * 0.85;
-      ponytail.position.set(0, 1.25, -0.28);
-      botGroup.add(ponytail);
-
-      // Eyes
-      const eyeGeo = new THREE.SphereGeometry(0.038, 16, 16);
-      const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-      leftEye.position.set(-0.085, 1.14, 0.22);
-      botGroup.add(leftEye);
-
-      const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-      rightEye.position.set(0.085, 1.14, 0.22);
-      botGroup.add(rightEye);
-
-      // Mouth
-      const mouthGeo = new THREE.TorusGeometry(0.03, 0.008, 12, 24, Math.PI);
-      proceduralMouth = new THREE.Mesh(mouthGeo, neonOrangeMat);
-      proceduralMouth.rotation.x = Math.PI;
-      proceduralMouth.position.set(0, 1.04, 0.23);
-      botGroup.add(proceduralMouth);
-
-      // Headphones
-      const headband = new THREE.Mesh(new THREE.TorusGeometry(0.27, 0.02, 12, 32, Math.PI), hoodieMat);
-      headband.position.set(0, 1.12, 0);
-      botGroup.add(headband);
-
-      const earpadGeo = new THREE.CylinderGeometry(0.075, 0.075, 0.05, 24);
-      const leftEar = new THREE.Mesh(earpadGeo, neonOrangeMat);
-      leftEar.rotation.z = Math.PI / 2;
-      leftEar.position.set(-0.26, 1.12, 0);
-      botGroup.add(leftEar);
-
-      const rightEar = new THREE.Mesh(earpadGeo, neonOrangeMat);
-      rightEar.rotation.z = Math.PI / 2;
-      rightEar.position.set(0.26, 1.12, 0);
-      botGroup.add(rightEar);
-
-      // Torso / Hoodie
-      const torsoGeo = new THREE.CylinderGeometry(0.22, 0.27, 0.65, 24);
-      const torso = new THREE.Mesh(torsoGeo, hoodieMat);
-      torso.position.set(0, 0.55, 0);
-      botGroup.add(torso);
-
-      // Left Arm
-      const armGeo = new THREE.CylinderGeometry(0.05, 0.04, 0.45, 16);
-      const leftArm = new THREE.Mesh(armGeo, hoodieMat);
-      leftArm.position.set(-0.28, 0.55, 0);
-      leftArm.rotation.z = 0.2;
-      botGroup.add(leftArm);
-
-      // Right Arm (Animated for waving/speaking)
-      proceduralRightArm = new THREE.Group();
-      proceduralRightArm.position.set(0.28, 0.7, 0);
-      const rightArmMesh = new THREE.Mesh(armGeo, hoodieMat);
-      rightArmMesh.position.set(0, -0.2, 0);
-      proceduralRightArm.add(rightArmMesh);
-      botGroup.add(proceduralRightArm);
-
-      return botGroup;
-    }
-
     const gltfLoader = new GLTFLoader();
     gltfLoader.register((parser) => new VRMLoaderPlugin(parser));
     const fbxLoader = new FBXLoader();
@@ -289,81 +181,95 @@ export function AvatarCanvas({
         if (!targetUrl) {
           targetUrl = await getCustomVRMUrl();
         }
+        if (!targetUrl) {
+          targetUrl = '/avatar/SANA.vrm';
+        }
 
-        if (targetUrl) {
-          try {
-            const gltf = await gltfLoader.loadAsync(targetUrl);
-            if (isDestroyed) return;
-
-            const vrm: VRM = gltf.userData.vrm;
-            if (vrm) {
-              vrmRef.current = vrm;
-              vrm.scene.position.set(0, 0, 0);
-              scene.add(vrm.scene);
-
-              if (vrm.expressionManager) {
-                vrm.expressionManager.setValue('relaxed', 0.2);
-                vrm.expressionManager.setValue('happy', 0.15);
-              }
-
-              const mixer = new THREE.AnimationMixer(vrm.scene);
-              mixerRef.current = mixer;
-
-              try {
-                const [wavingFbx, idleFbx, talkingFbx] = await Promise.all([
-                  fbxLoader.loadAsync('/avatar/Waving.fbx').catch(() => null),
-                  fbxLoader.loadAsync('/avatar/Idle.fbx').catch(() => null),
-                  fbxLoader.loadAsync('/avatar/Talking On Phone.fbx').catch(() => null)
-                ]);
-
-                if (!isDestroyed) {
-                  if (wavingFbx && wavingFbx.animations[0]) {
-                    const clip = retargetFBXClip(wavingFbx.animations[0], vrm);
-                    const action = mixer.clipAction(clip);
-                    action.setLoop(THREE.LoopOnce, 1);
-                    action.clampWhenFinished = true;
-                    actionsRef.current.waving = action;
-                    action.play();
-                  }
-
-                  if (idleFbx && idleFbx.animations[0]) {
-                    const clip = retargetFBXClip(idleFbx.animations[0], vrm);
-                    const action = mixer.clipAction(clip);
-                    actionsRef.current.idle = action;
-                    if (!actionsRef.current.waving) {
-                      action.play();
-                    }
-                  }
-
-                  if (talkingFbx && talkingFbx.animations[0]) {
-                    const clip = retargetFBXClip(talkingFbx.animations[0], vrm);
-                    const action = mixer.clipAction(clip);
-                    actionsRef.current.talking = action;
-                  }
-                }
-              } catch (animErr) {
-                console.warn('FBX animation loading warning:', animErr);
-              }
-
-              setLoading(false);
-              return;
-            }
-          } catch (customErr) {
-            console.warn('Custom VRM load error:', customErr);
+        let loadedGltf = null;
+        try {
+          loadedGltf = await gltfLoader.loadAsync(targetUrl);
+        } catch (loadErr) {
+          if (targetUrl !== '/avatar/SANA.vrm') {
+            console.warn('Custom VRM model failed to load, falling back to /avatar/SANA.vrm:', loadErr);
             onInvalidAvatar?.();
+            targetUrl = '/avatar/SANA.vrm';
+            try {
+              loadedGltf = await gltfLoader.loadAsync(targetUrl);
+            } catch {
+              loadedGltf = null;
+            }
+          } else {
+            loadedGltf = null;
           }
         }
 
-        // Guaranteed Procedural 3D SANA Bot Fallback
-        proceduralGroup = buildProceduralSanaBot();
-        scene.add(proceduralGroup);
+        if (isDestroyed) return;
+
+        if (loadedGltf) {
+          const vrm: VRM = loadedGltf.userData.vrm;
+          if (vrm) {
+            vrmRef.current = vrm;
+            vrm.scene.position.set(0, 0, 0);
+            vrm.scene.rotation.set(0, 0, 0);
+            scene.add(vrm.scene);
+            setHasAvatarModel(true);
+
+            if (vrm.expressionManager) {
+              vrm.expressionManager.setValue('relaxed', 0.2);
+              vrm.expressionManager.setValue('happy', 0.15);
+            }
+
+            const mixer = new THREE.AnimationMixer(vrm.scene);
+            mixerRef.current = mixer;
+
+            try {
+              const [wavingFbx, idleFbx, talkingFbx] = await Promise.all([
+                fbxLoader.loadAsync('/avatar/Waving.fbx').catch(() => null),
+                fbxLoader.loadAsync('/avatar/Idle.fbx').catch(() => null),
+                fbxLoader.loadAsync('/avatar/Talking On Phone.fbx').catch(() => null)
+              ]);
+
+              if (!isDestroyed) {
+                if (idleFbx && idleFbx.animations[0]) {
+                  const clip = retargetFBXClip(idleFbx.animations[0], vrm);
+                  const action = mixer.clipAction(clip);
+                  actionsRef.current.idle = action;
+                }
+
+                if (talkingFbx && talkingFbx.animations[0]) {
+                  const clip = retargetFBXClip(talkingFbx.animations[0], vrm);
+                  const action = mixer.clipAction(clip);
+                  actionsRef.current.talking = action;
+                }
+
+                if (wavingFbx && wavingFbx.animations[0]) {
+                  const clip = retargetFBXClip(wavingFbx.animations[0], vrm);
+                  const action = mixer.clipAction(clip);
+                  action.setLoop(THREE.LoopOnce, 1);
+                  action.clampWhenFinished = true;
+                  actionsRef.current.waving = action;
+                  action.play();
+                } else if (actionsRef.current.idle) {
+                  actionsRef.current.idle.play();
+                }
+              }
+            } catch (animErr) {
+              console.warn('FBX animation loading warning:', animErr);
+            }
+
+            setLoading(false);
+            return;
+          }
+        }
+
+        // No VRM loaded
+        setHasAvatarModel(false);
         setLoading(false);
 
       } catch (err: any) {
-        console.warn('Using procedural 3D avatar fallback:', err);
+        console.warn('No 3D avatar VRM model available:', err);
         if (!isDestroyed) {
-          proceduralGroup = buildProceduralSanaBot();
-          scene.add(proceduralGroup);
+          setHasAvatarModel(false);
           setLoading(false);
         }
       }
@@ -428,29 +334,6 @@ export function AvatarCanvas({
         }
 
         vrm.update(delta);
-      } else if (proceduralGroup) {
-        // Animate procedural 3D SANA bot
-        proceduralGroup.position.y = 0.1 + Math.sin(elapsedTime * 2) * 0.025;
-        proceduralGroup.rotation.y = Math.sin(elapsedTime * 0.8) * 0.08;
-
-        if (proceduralMouth) {
-          if (speaking) {
-            const mouthOpen = 1 + Math.abs(Math.sin(elapsedTime * 12)) * 1.5;
-            proceduralMouth.scale.set(1, mouthOpen, 1);
-          } else {
-            proceduralMouth.scale.set(1, 1, 1);
-          }
-        }
-
-        if (proceduralRightArm) {
-          if (isWaving) {
-            proceduralRightArm.rotation.z = 1.2 + Math.sin(elapsedTime * 10) * 0.3;
-          } else if (speaking) {
-            proceduralRightArm.rotation.z = 0.4 + Math.sin(elapsedTime * 4) * 0.15;
-          } else {
-            proceduralRightArm.rotation.z = -0.2;
-          }
-        }
       }
 
       // Smooth Camera lerp
@@ -508,7 +391,21 @@ export function AvatarCanvas({
       {loading && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/20 backdrop-blur-sm rounded-2xl z-10 text-white/70 text-xs gap-2">
           <div className="w-8 h-8 border-2 border-orange-500/30 border-t-orange-500 rounded-full animate-spin" />
-          <span>Loading 3D Avatar...</span>
+          <span>3D অবতার লোড হচ্ছে...</span>
+        </div>
+      )}
+
+      {!loading && !hasAvatarModel && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-950/40 backdrop-blur-md rounded-3xl border border-white/10 z-10 text-white/80 gap-3">
+          <div className="w-14 h-14 rounded-2xl bg-orange-500/20 border border-orange-500/40 flex items-center justify-center text-orange-400 shadow-lg">
+            <span className="text-2xl">✨</span>
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-white">সব অবতার ডিলিট করা হয়েছে</h3>
+            <p className="text-xs text-white/60 max-w-xs mt-1">
+              আপনার দেওয়া নতুন ফাইল (.VRM ও .FBX) বা লিংক অপশন থেকে আপলোড করার সাথে সাথে এখানে দেখা যাবে।
+            </p>
+          </div>
         </div>
       )}
 
