@@ -63,11 +63,14 @@ export function SnowParticles() {
       ctx.clearRect(0, 0, width, height);
       time += 0.01;
 
+      // Oscillating wind parameter that changes smoothly over time
+      const wind = Math.sin(time * 0.4) * 0.7 + Math.cos(time * 0.2) * 0.3;
+
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
 
-        // Slight sine wave motion for organic drift
-        p.x += p.speedX + Math.sin(time + i) * 0.15;
+        // Combine individual speed, sine wave drift, and time-oscillating wind force
+        p.x += p.speedX + wind + Math.sin(time + i) * 0.15;
         p.y += p.speedY;
 
         // Pulse opacity slightly
@@ -76,6 +79,9 @@ export function SnowParticles() {
         // Wrap around screen edges
         if (p.y < -10) {
           p.y = height + 10;
+          p.x = Math.random() * width;
+        } else if (p.y > height + 10) {
+          p.y = -10;
           p.x = Math.random() * width;
         }
         if (p.x < -10) p.x = width + 10;
